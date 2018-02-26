@@ -87,6 +87,21 @@ typedef union {
     uint8_t array[sizeof(struct _ieee_std_frame_t)];
 } ieee_std_frame_t;
 
+// LWIP TEST : To be removed
+typedef union {
+    struct _test_frame_t{
+	uint16_t fctrl;
+	uint8_t seq_num;
+	uint16_t PANID;
+        uint16_t dst_address;       // destination address
+        uint16_t src_address;       // source address
+        uint16_t code;
+	uint16_t data;		    // A random hardcoded integer value
+        uint16_t csr;               // frame check-sum
+    }__attribute__((__packed__));
+    uint8_t array[sizeof(struct _test_frame_t)];
+}__attribute__((__packed__)) test_frame_t;
+ 
 
 #ifdef __cplusplus
 }

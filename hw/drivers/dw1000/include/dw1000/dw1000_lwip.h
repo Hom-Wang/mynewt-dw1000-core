@@ -33,6 +33,7 @@ extern "C" {
 #include <dw1000/dw1000_regs.h>
 #include <dw1000/dw1000_dev.h>
 #include <dw1000/dw1000_ftypes.h>
+#include <lwip/pbuf.h>
 
 typedef struct _dw1000_lwip_config_t{
    uint16_t poll_resp_delay;    // Delay between frames, in UWB microseconds.
@@ -53,16 +54,40 @@ typedef struct _dw1000_lwip_status_t{
 typedef struct _dw1000_lwip_instance_t{
     struct _dw1000_dev_instance_t * dev;
     struct os_sem sem;
+#if 0
     struct _ieee_std_frame_t * tx_frame;
     struct _ieee_std_frame_t * rx_frame;
+#else
+    test_frame_t * tx_frame;
+    test_frame_t * rx_frame;
+#endif
+#if 0
     struct _dw1000_lwip_config_t config;
     struct _dw1000_lwip_status_t status;
+    dw1000_lwip_config_t config;
+#else
+    dw1000_lwip_config_t * config;
+    dw1000_lwip_status_t status;
+    struct netif * netif;
+#endif
 }dw1000_lwip_instance_t;
 
-dw1000_lwip_instance_t * dw1000_lwip_init(dw1000_dev_instance_t * inst, dw1000_lwip_config_t * config);
+dw1000_lwip_config_t * dw1000_config(dw1000_dev_instance_t * inst);
+
+//dw1000_lwip_instance_t * dw1000_lwip_init(dw1000_dev_instance_t * inst, dw1000_lwip_config_t * config);
+dw1000_lwip_instance_t * dw1000_lwip_init(dw1000_dev_instance_t * inst, dw1000_lwip_config_t * config, struct netif * netif);
+
 void dw1000_lwip_free(dw1000_lwip_instance_t * inst);
+
+#if 0
 void dw1000_lwip_set_callbacks(dw1000_lwip_instance_t * inst, dw1000_dev_cb_t lwip_tx_complete_cb, dw1000_dev_cb_t lwip_rx_complete_cb,  dw1000_dev_cb_t lwip_timeout_cb,  dw1000_dev_cb_t lwip_error_cb);
+#else
+void dw1000_lwip_set_callbacks(dw1000_dev_instance_t * inst, dw1000_dev_cb_t lwip_tx_complete_cb, dw1000_dev_cb_t lwip_rx_complete_cb,  dw1000_dev_cb_t lwip_timeout_cb,  dw1000_dev_cb_t lwip_error_cb);
+#endif
+
 dw1000_lwip_status_t dw1000_lwip_write(dw1000_lwip_instance_t * inst, dw1000_lwip_config_t * config, dw1000_lwip_modes_t mode);
+void dw1000_lwip_set_frames(dw1000_dev_instance_t * inst, test_frame_t *tx_frame);
+dw1000_dev_status_t dw1000_lwip_send(dw1000_dev_instance_t * inst, struct pbuf * p, dw1000_lwip_modes_t code);
 
 #ifdef __cplusplus
 }

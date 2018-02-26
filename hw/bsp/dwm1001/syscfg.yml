@@ -28,13 +28,13 @@ syscfg.defs:
         value:  1
     UART_0_PIN_TX:
         description: 'TX pin for UART0'
-        value:  6
+        value:  5
     UART_0_PIN_RX:
         description: 'RX pin for UART0'
-        value:  8
+        value: 11
     UART_0_PIN_RTS:
         description: 'RTS pin for UART0'
-        value:  5
+        value:  6
     UART_0_PIN_CTS:
         description: 'CTS pin for UART0'
         value: 7
@@ -60,7 +60,7 @@ syscfg.defs:
 
     DW1000_DEVICE_0:
         description: 'DW1000 Device Enable'
-        value:  0
+        value:  1
     DW1000_DEVICE_0_SPI_IDX:
         description: 'Using SPI0'
         value:  0
@@ -88,9 +88,6 @@ syscfg.defs:
     DW1000_DEVICE_0_RX_ANT_DLY:
         description: 'RX_ANT_DLY'
         value: 0x4010
-    FUSION_EXTENDED_FRAME: 
-        description: 'Extend TWR final frame to include fusion data'
-        value: 0
 
 syscfg.defs.BLE_LP_CLOCK:
     TIMER_0:
