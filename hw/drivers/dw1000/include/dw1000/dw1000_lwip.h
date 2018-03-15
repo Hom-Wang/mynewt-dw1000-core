@@ -54,28 +54,16 @@ typedef struct _dw1000_lwip_status_t{
 typedef struct _dw1000_lwip_instance_t{
     struct _dw1000_dev_instance_t * dev;
     struct os_sem sem;
-#if 0
-    struct _ieee_std_frame_t * tx_frame;
-    struct _ieee_std_frame_t * rx_frame;
-#else
     test_frame_t * tx_frame;
     test_frame_t * rx_frame;
-#endif
-#if 0
-    struct _dw1000_lwip_config_t config;
-    struct _dw1000_lwip_status_t status;
-    dw1000_lwip_config_t config;
-#else
     dw1000_lwip_config_t * config;
     dw1000_lwip_status_t status;
     struct netif * netif;
-#endif
 }dw1000_lwip_instance_t;
 
 dw1000_lwip_config_t * dw1000_config(dw1000_dev_instance_t * inst);
 
-//dw1000_lwip_instance_t * dw1000_lwip_init(dw1000_dev_instance_t * inst, dw1000_lwip_config_t * config);
-dw1000_lwip_instance_t * dw1000_lwip_init(dw1000_dev_instance_t * inst, dw1000_lwip_config_t * config, struct netif * netif);
+dw1000_lwip_instance_t * dw1000_lwip_init(dw1000_dev_instance_t * inst, dw1000_lwip_config_t * config, bool ping_status);
 
 void dw1000_lwip_free(dw1000_lwip_instance_t * inst);
 
@@ -87,7 +75,9 @@ void dw1000_lwip_set_callbacks(dw1000_dev_instance_t * inst, dw1000_dev_cb_t lwi
 
 dw1000_lwip_status_t dw1000_lwip_write(dw1000_lwip_instance_t * inst, dw1000_lwip_config_t * config, dw1000_lwip_modes_t mode);
 void dw1000_lwip_set_frames(dw1000_dev_instance_t * inst, test_frame_t *tx_frame);
-dw1000_dev_status_t dw1000_lwip_send(dw1000_dev_instance_t * inst, struct pbuf * p, dw1000_lwip_modes_t code);
+dw1000_dev_status_t dw1000_lwip_send(dw1000_dev_instance_t * inst, uint16_t dst_address, dw1000_lwip_modes_t code);
+
+dw1000_dev_status_t dw1000_lwip_ping_send(dw1000_dev_instance_t * inst, struct pbuf *p, dw1000_lwip_modes_t code);
 
 #ifdef __cplusplus
 }
