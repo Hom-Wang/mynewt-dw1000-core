@@ -34,6 +34,8 @@ extern "C" {
 #include <dw1000/dw1000_dev.h>
 #include <dw1000/dw1000_ftypes.h>
 #include <lwip/pbuf.h>
+#include <lwip/ip_addr.h>
+
 
 typedef struct _dw1000_lwip_config_t{
    uint16_t poll_resp_delay;    // Delay between frames, in UWB microseconds.
@@ -61,23 +63,46 @@ typedef struct _dw1000_lwip_instance_t{
     struct netif * netif;
 }dw1000_lwip_instance_t;
 
-dw1000_lwip_config_t * dw1000_config(dw1000_dev_instance_t * inst);
+dw1000_lwip_config_t * 
+dw1000_config(dw1000_dev_instance_t * inst);
 
-dw1000_lwip_instance_t * dw1000_lwip_init(dw1000_dev_instance_t * inst, dw1000_lwip_config_t * config, bool ping_status);
+dw1000_lwip_instance_t * 
+dw1000_lwip_init(dw1000_dev_instance_t * inst, dw1000_lwip_config_t * config);
 
-void dw1000_lwip_free(dw1000_lwip_instance_t * inst);
+void 
+dw1000_lwip_free(dw1000_lwip_instance_t * inst);
 
-#if 0
-void dw1000_lwip_set_callbacks(dw1000_lwip_instance_t * inst, dw1000_dev_cb_t lwip_tx_complete_cb, dw1000_dev_cb_t lwip_rx_complete_cb,  dw1000_dev_cb_t lwip_timeout_cb,  dw1000_dev_cb_t lwip_error_cb);
-#else
-void dw1000_lwip_set_callbacks(dw1000_dev_instance_t * inst, dw1000_dev_cb_t lwip_tx_complete_cb, dw1000_dev_cb_t lwip_rx_complete_cb,  dw1000_dev_cb_t lwip_timeout_cb,  dw1000_dev_cb_t lwip_error_cb);
-#endif
+void 
+dw1000_lwip_set_callbacks(dw1000_dev_instance_t * inst, dw1000_dev_cb_t lwip_tx_complete_cb, dw1000_dev_cb_t lwip_rx_complete_cb,  dw1000_dev_cb_t lwip_timeout_cb,  dw1000_dev_cb_t lwip_error_cb);
 
-dw1000_lwip_status_t dw1000_lwip_write(dw1000_lwip_instance_t * inst, dw1000_lwip_config_t * config, dw1000_lwip_modes_t mode);
-void dw1000_lwip_set_frames(dw1000_dev_instance_t * inst, test_frame_t *tx_frame);
-dw1000_dev_status_t dw1000_lwip_send(dw1000_dev_instance_t * inst, uint16_t dst_address, dw1000_lwip_modes_t code);
+dw1000_lwip_status_t 
+dw1000_lwip_write(dw1000_lwip_instance_t * inst, dw1000_lwip_config_t * config, dw1000_lwip_modes_t mode);
 
-dw1000_dev_status_t dw1000_lwip_ping_send(dw1000_dev_instance_t * inst, struct pbuf *p, dw1000_lwip_modes_t code);
+void 
+dw1000_lwip_set_frames(dw1000_dev_instance_t * inst, test_frame_t *tx_frame);
+
+dw1000_dev_status_t 
+dw1000_lwip_lwip_send(dw1000_dev_instance_t * inst, struct pbuf *p, dw1000_lwip_modes_t code);
+
+void
+dw1000_low_level_init( dw1000_dev_instance_t * inst, bool rx_status);
+
+void 
+dw1000_netif_config( dw1000_dev_instance_t * inst, struct netif *netif, ip_addr_t *my_ip_addr, bool rx_status);
+
+err_t 
+dw1000_netif_init( struct netif * dw1000_netif);
+
+err_t 
+dw1000_ll_output(struct netif * dw1000_netif, struct pbuf *p);
+
+
+err_t 
+dw1000_ll_input(struct pbuf *p, struct netif *dw1000_netif);
+
+void
+dw1000_lwip_start_receive(dw1000_dev_instance_t * inst);
+
 
 #ifdef __cplusplus
 }
