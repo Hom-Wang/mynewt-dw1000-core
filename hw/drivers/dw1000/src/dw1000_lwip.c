@@ -190,6 +190,7 @@ dw1000_lwip_send(dw1000_dev_instance_t * inst, struct pbuf *p, dw1000_lwip_modes
 	dw1000_write_tx_fctrl(inst, DATA_LEN, 0, false);     
 	dw1000_set_wait4resp(inst, true);
 	dw1000_set_rx_timeout(inst, config->resp_timeout);
+	inst->lwip->netif->flags = 5 ;
 	dw1000_start_tx(inst);
 
 	err = os_sem_pend(&inst->lwip->sem, 10000); // Wait for completion of transactions units os_clicks
