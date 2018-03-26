@@ -103,6 +103,7 @@ dw1000_ll_input(struct pbuf *p, struct netif *dw1000_netif);
 void
 dw1000_lwip_start_receive(dw1000_dev_instance_t * inst);
 
+void print_error(err_t error);
 
 #ifdef __cplusplus
 }
