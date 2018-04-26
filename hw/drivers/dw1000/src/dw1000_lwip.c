@@ -49,11 +49,14 @@
 
 
 // TODOs::This file is a place holder for the lwip project
+#define NODE0 0
 
+#if !MYNEWT_VAL(DW1000_LWIP_P2P)
 static void rx_complete_cb(dw1000_dev_instance_t * inst);
 static void tx_complete_cb(dw1000_dev_instance_t * inst);
 static void rx_timeout_cb(dw1000_dev_instance_t * inst);
 static void rx_error_cb(dw1000_dev_instance_t * inst);
+#endif
 dw1000_lwip_context_t cntxt;
 
 
@@ -96,7 +99,9 @@ dw1000_lwip_init(dw1000_dev_instance_t * inst, dw1000_lwip_config_t * config, ui
 		dw1000_lwip_config(inst, config);
 	}
 
+	#if !MYNEWT_VAL(DW1000_LWIP_P2P)
 	dw1000_lwip_set_callbacks(inst, tx_complete_cb, rx_complete_cb, rx_timeout_cb, rx_error_cb);
+	#endif
 
 	inst->lwip->status.initialized = 1;
 
@@ -130,22 +135,45 @@ dw1000_lwip_set_callbacks( dw1000_dev_instance_t * inst, dw1000_dev_cb_t tx_comp
 dw1000_dev_status_t
 dw1000_lwip_write(dw1000_dev_instance_t * inst, struct pbuf *p, dw1000_lwip_modes_t mode){
 
+	#if !MYNEWT_VAL(DW1000_LWIP_P2P)
 	/* Semaphore lock for multi-threaded applications */
 	os_error_t err = os_sem_pend(&inst->lwip->sem, OS_TIMEOUT_NEVER);
 	assert(err == OS_OK);
+	#endif
 	assert(p != NULL);
 
-	dw1000_write_tx(inst, (uint8_t *) p, 0, inst->lwip->buf_len);
+	char *id_pbuf, *temp_buf;
+	uint8_t i;
+	id_pbuf = (char *)malloc((inst->lwip->buf_len) + 4);
+	assert(id_pbuf);
+	/* Append the 'L' 'W' 'I' 'P' Identifier */
+	*(id_pbuf + 0) = 'L';	*(id_pbuf + 1) = 'W';
+	*(id_pbuf + 2) = 'I';	*(id_pbuf + 3) = 'P';
+
+	temp_buf = (char *)p;
+	/* Copy the LWIP packet afet LWIP Id */
+	for (i=0 ; i<inst->lwip->buf_len ; ++i)
+		*(id_pbuf+i+4) = *(temp_buf+i);
+
+	for(i=0 ; i<4 ; ++i)
+		printf("[%c] ",(uint8_t)*(id_pbuf+i));
+
+	printf(" \n");
+	dw1000_write_tx(inst, (uint8_t *) id_pbuf, 0, inst->lwip->buf_len+4);
+	free(id_pbuf);
+
 	dw1000_write_tx_fctrl(inst, inst->lwip->buf_len, 0, false);
 	inst->lwip->netif->flags = 5 ;
 	inst->lwip->status.start_tx_error = dw1000_start_tx(inst).start_tx_error;
 
+	#if !MYNEWT_VAL(DW1000_LWIP_P2P)
 	if( mode == LWIP_BLOCKING )
 		err = os_sem_pend(&inst->lwip->sem, OS_TIMEOUT_NEVER); // Wait for completion of transactions units os_clicks
 	else
 		err = os_sem_pend(&inst->lwip->sem, 500); // Wait for completion of transactions units os_clicks
 
 	os_sem_release(&inst->lwip->sem);
+	#endif
 	return inst->status;
 }
 
@@ -161,13 +189,20 @@ dw1000_lwip_start_rx(dw1000_dev_instance_t * inst, uint16_t timeout){
 }
 
 
+#if !MYNEWT_VAL(DW1000_LWIP_P2P)
 static void 
 rx_complete_cb(dw1000_dev_instance_t * inst){
 
-
+	printf("%s\n", __func__);
 	uint16_t buf_idx = (inst->lwip->buf_idx++) % inst->lwip->nframes;
 	char *data_buf = inst->lwip->data_buf[ buf_idx];
 
+	for (int i = 0; i < 4; ++i)
+	{
+		/* code */
+		printf("[%c] ", (char)(*(data_buf+i)));
+	}
+	printf(" \n");
 	dw1000_read_rx(inst, (uint8_t *) data_buf, 0, inst->lwip->buf_len);
 	inst->lwip->netif->input((struct pbuf *)data_buf, inst->lwip->netif);
 	os_error_t err = os_sem_release(&inst->lwip->data_sem);
@@ -178,6 +213,7 @@ rx_complete_cb(dw1000_dev_instance_t * inst){
 static void 
 tx_complete_cb(dw1000_dev_instance_t * inst){
 
+	printf("%s\n", __func__);
 	os_error_t err = os_sem_release(&inst->lwip->sem);
 	assert(err == OS_OK);
 }
@@ -186,6 +222,7 @@ tx_complete_cb(dw1000_dev_instance_t * inst){
 static void 
 rx_timeout_cb(dw1000_dev_instance_t * inst){
 
+	printf("%s\n", __func__);
 	os_error_t err = os_sem_release(&inst->lwip->data_sem);
 	assert(err == OS_OK);
 
@@ -196,12 +233,13 @@ rx_timeout_cb(dw1000_dev_instance_t * inst){
 void
 rx_error_cb(dw1000_dev_instance_t * inst){
 
+	printf("%s\n", __func__);
 	os_error_t err = os_sem_release(&inst->lwip->data_sem);
 	assert(err == OS_OK);
 
 	inst->lwip->status.rx_error = 1;
 }
-
+#endif
 
 void
 dw1000_low_level_init( dw1000_dev_instance_t * inst, 

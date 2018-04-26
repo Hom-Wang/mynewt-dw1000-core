@@ -28,13 +28,13 @@ syscfg.defs:
         value:  1
     UART_0_PIN_TX:
         description: 'TX pin for UART0'
-        value:  6
+        value:  5
     UART_0_PIN_RX:
         description: 'RX pin for UART0'
-        value:  8
+        value:  11
     UART_0_PIN_RTS:
         description: 'RTS pin for UART0'
-        value:  5
+        value:  6
     UART_0_PIN_CTS:
         description: 'CTS pin for UART0'
         value: 7
@@ -85,6 +85,12 @@ syscfg.defs:
     DW1000_DEVICE_0_RX_ANT_DLY:
         description: 'RX_ANT_DLY'
         value: 0x4010
+    DW1000_DEV_TASK_STACK_SZ: 
+        description: 'DEV STACK SIZE remove'
+        value: 512
+    DW1000_DEV_TASK_PRIO:
+        description: 'DEV_TASK_PRIO remove'
+        value: 5
 
 syscfg.defs.BLE_LP_CLOCK:
     TIMER_0:

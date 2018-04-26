@@ -201,6 +201,11 @@ typedef struct _dw1000_dev_instance_t{
 #if MYNEWT_VAL(DW1000_LWIP)
     struct _dw1000_lwip_instance_t * lwip;
 #endif
+//#if MYNEWT_VAL(DW1000_LWIP_P2P)
+#if 1
+    struct _dw1000_lwip_p2p_instance_t * lwip_p2p;
+    void (* lwip_p2p_complete_cb) (struct _dw1000_dev_instance_t *);    
+#endif
 #if MYNEWT_VAL(DW1000_CLOCK_CALIBRATION)
     struct _dw1000_ccp_instance_t * ccp;
 #endif

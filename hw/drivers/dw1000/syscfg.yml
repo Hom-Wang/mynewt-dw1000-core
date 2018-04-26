@@ -1,4 +1,3 @@
-
 syscfg.defs:
     DW1000_SS_TWR_ENABLED:
         description: 'Single sided TWR Enabled'

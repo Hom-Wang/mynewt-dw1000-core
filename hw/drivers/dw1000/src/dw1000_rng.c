@@ -34,6 +34,7 @@
 #include <dw1000/dw1000_phy.h>
 #include <dw1000/dw1000_ftypes.h>
 #include <dw1000/dw1000_rng.h>
+#include <dw1000/dw1000_lwip.h>
 
 
 static void rng_tx_complete_cb(dw1000_dev_instance_t * inst);
@@ -268,6 +269,7 @@ rng_tx_complete_cb(dw1000_dev_instance_t * inst)
 static void 
 rng_rx_timeout_cb(dw1000_dev_instance_t * inst){
      
+    printf("%s\n", __func__);
     if (inst->fctrl_array[0] == FCNTL_IEEE_BLINK_TAG_64){ 
 #if MYNEWT_VAL(DW1000_PAN)
         if (inst->pan_rx_timeout_cb != NULL)
@@ -275,11 +277,12 @@ rng_rx_timeout_cb(dw1000_dev_instance_t * inst){
 #endif
     }
     os_error_t err = os_sem_release(&inst->rng->sem);
-    assert(err == OS_OK);
+    assert(err == OS_OK); 
 }
 
 static void 
 rng_rx_error_cb(dw1000_dev_instance_t * inst){
+    printf("%s\n", __func__);
     os_error_t err = os_sem_release(&inst->rng->sem);   
     assert(err == OS_OK);
 }
@@ -291,6 +294,35 @@ rng_rx_complete_cb(dw1000_dev_instance_t * inst)
     dw1000_rng_config_t * config = inst->rng->config;
     dw1000_dev_control_t control = inst->control_rx_context;
 
+    printf("%s\n", __func__);
+
+    char *data_buf;
+    data_buf = (char *)malloc(inst->lwip->buf_len + 4);
+    assert(data_buf);
+
+    dw1000_read_rx(inst, (uint8_t *)data_buf, 0, inst->lwip->buf_len+4);
+
+    for (int i = 0; i < 4; ++i)
+    {
+        /* code */
+        printf("[%d] \n", (uint8_t)(*(data_buf+i)));
+    }
+    free(data_buf);
+    dw1000_start_rx(inst);
+    return;
+    printf("%s - 1\n", __func__);
+
+    if((*(data_buf+0) == 'L') && (*(data_buf+1) == 'W') &&
+        (*(data_buf+2) == 'I') && (*(data_buf+3) == 'P')) {
+
+        inst->lwip->data_buf[0] = (char *)(data_buf + 4);
+        free(data_buf);
+        //inst->lwip_p2p_complete_cb(inst);
+        os_sem_release(&inst->rng->sem);
+        dw1000_start_rx(inst);
+        return;
+    }
+        
     if (inst->fctrl_array[0] == FCNTL_IEEE_BLINK_CCP_64){
 #if MYNEWT_VAL(DW1000_CLOCK_CALIBRATION)
         // CCP Packet Received
