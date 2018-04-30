@@ -65,15 +65,26 @@ typedef struct _dw1000_lwip_p2p_status_t{
     uint16_t rng_req_rsp:1;
 }dw1000_lwip_p2p_status_t;
 
+
 /*
  * Structure to be used for storing p2p value b/w
  * node1 and node 2
  */
 typedef struct _node_ranges_t{
-    uint16_t node1_short_addr;
-    uint16_t node2_short_addr;
-    float range_val;
+    uint16_t src_node_addr;
+    uint16_t dst_node_addr;
 }node_ranges_t;
+
+
+typedef struct _lwip_p2p_rng_rec_t{
+    uint16_t dst_addr;
+    uint16_t range_val;
+}lwip_p2p_rng_rec_t;
+
+typedef struct _lwip_p2p_node_rng_rec_t{
+    uint16_t src_node_addr;
+    lwip_p2p_rng_rec_t rng_rec_t;
+}lwip_p2p_node_rng_rec_t;
 
 /*
  * Lwip p2p instance Structure
@@ -84,20 +95,31 @@ typedef struct _dw1000_lwip_p2p_instance_t{
     dw1000_lwip_p2p_config_t config;
     uint8_t idx;
     uint16_t nnodes;
+    //lwip_p2p_node_rng_rec_t node_rng_rec_t[];
     node_ranges_t node_ranges[];
 }dw1000_lwip_p2p_instance_t;
 
 /*
  * Structure of frame to be used for lwip p2p service
  */
-typedef struct _lwip_twr_frame_t{
-    uint8_t code;
-    uint16_t master_addr;   // node0_address
+typedef struct _lwip_p2p_rng_req_frame_t{
+    uint16_t cmd_type;
+    uint32_t seq_num;
+    uint16_t lwip_node_addr;
     /* The two nodes between which lwip will initiate p2p. */
-    uint16_t node1_addr;
-    uint16_t node2_addr;
-    float range;
-}lwip_twr_frame_t;
+    uint16_t src_node_addr;
+    //uint16_t num_dst_nodes;
+    uint16_t dst_node_addr;
+    //float range;
+}lwip_p2p_rng_req_frame_t;
+
+typedef struct _lwip_p2p_rng_resp_frame_t{
+    uint16_t resp_type;
+    uint32_t seq_num;
+    uint16_t src_node_addr;
+    uint16_t dst_node_addr;
+    uint16_t range_val;
+}lwip_p2p_rng_resp_frame_t;
 
 /**
  * [dw1000_lwip_p2p_init description]
@@ -114,7 +136,7 @@ dw1000_lwip_p2p_instance_t * dw1000_lwip_p2p_init(dw1000_dev_instance_t * inst, 
  * @param inst [Device instance]
  * @param twr  [Prepared frame/payload]
  */
-void dw1000_lwip_p2p_set_frames(dw1000_dev_instance_t * inst, lwip_twr_frame_t twr[]);
+//void dw1000_lwip_p2p_set_frames(dw1000_dev_instance_t * inst, lwip_p2p_rng_req_frame_t twr[]);
 
 /**
  * [dw1000_lwip_p2p_free description]
