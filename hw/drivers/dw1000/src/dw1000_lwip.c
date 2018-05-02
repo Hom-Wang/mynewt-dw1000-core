@@ -155,10 +155,7 @@ dw1000_lwip_write(dw1000_dev_instance_t * inst, struct pbuf *p, dw1000_lwip_mode
 	for (i=0 ; i<inst->lwip->buf_len ; ++i)
 		*(id_pbuf+i+4) = *(temp_buf+i);
 
-	for(i=0 ; i<4 ; ++i)
-		printf("[%c] ",(uint8_t)*(id_pbuf+i));
-
-	printf(" \n");
+	
 	dw1000_write_tx(inst, (uint8_t *) id_pbuf, 0, inst->lwip->buf_len+4);
 	free(id_pbuf);
 
@@ -193,16 +190,9 @@ dw1000_lwip_start_rx(dw1000_dev_instance_t * inst, uint16_t timeout){
 static void 
 rx_complete_cb(dw1000_dev_instance_t * inst){
 
-	printf("%s\n", __func__);
 	uint16_t buf_idx = (inst->lwip->buf_idx++) % inst->lwip->nframes;
 	char *data_buf = inst->lwip->data_buf[ buf_idx];
 
-	for (int i = 0; i < 4; ++i)
-	{
-		/* code */
-		printf("[%c] ", (char)(*(data_buf+i)));
-	}
-	printf(" \n");
 	dw1000_read_rx(inst, (uint8_t *) data_buf, 0, inst->lwip->buf_len);
 	inst->lwip->netif->input((struct pbuf *)data_buf, inst->lwip->netif);
 	os_error_t err = os_sem_release(&inst->lwip->data_sem);
@@ -213,7 +203,6 @@ rx_complete_cb(dw1000_dev_instance_t * inst){
 static void 
 tx_complete_cb(dw1000_dev_instance_t * inst){
 
-	printf("%s\n", __func__);
 	os_error_t err = os_sem_release(&inst->lwip->sem);
 	assert(err == OS_OK);
 }
@@ -222,7 +211,6 @@ tx_complete_cb(dw1000_dev_instance_t * inst){
 static void 
 rx_timeout_cb(dw1000_dev_instance_t * inst){
 
-	printf("%s\n", __func__);
 	os_error_t err = os_sem_release(&inst->lwip->data_sem);
 	assert(err == OS_OK);
 
@@ -233,7 +221,6 @@ rx_timeout_cb(dw1000_dev_instance_t * inst){
 void
 rx_error_cb(dw1000_dev_instance_t * inst){
 
-	printf("%s\n", __func__);
 	os_error_t err = os_sem_release(&inst->lwip->data_sem);
 	assert(err == OS_OK);
 

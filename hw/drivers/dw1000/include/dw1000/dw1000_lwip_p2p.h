@@ -73,6 +73,7 @@ typedef struct _dw1000_lwip_p2p_status_t{
 typedef struct _node_ranges_t{
     uint16_t src_node_addr;
     uint16_t dst_node_addr;
+    uint16_t range_val;
 }node_ranges_t;
 
 
@@ -83,7 +84,7 @@ typedef struct _lwip_p2p_rng_rec_t{
 
 typedef struct _lwip_p2p_node_rng_rec_t{
     uint16_t src_node_addr;
-    lwip_p2p_rng_rec_t rng_rec_t;
+    lwip_p2p_rng_rec_t rng_rec_t[];
 }lwip_p2p_node_rng_rec_t;
 
 /*
@@ -106,11 +107,10 @@ typedef struct _lwip_p2p_rng_req_frame_t{
     uint16_t cmd_type;
     uint32_t seq_num;
     uint16_t lwip_node_addr;
+    uint16_t num_dst_nodes;
     /* The two nodes between which lwip will initiate p2p. */
     uint16_t src_node_addr;
-    //uint16_t num_dst_nodes;
     uint16_t dst_node_addr;
-    //float range;
 }lwip_p2p_rng_req_frame_t;
 
 typedef struct _lwip_p2p_rng_resp_frame_t{

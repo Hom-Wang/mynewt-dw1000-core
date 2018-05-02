@@ -43,6 +43,8 @@ static void rng_rx_timeout_cb(dw1000_dev_instance_t * inst);
 static void rng_rx_error_cb(dw1000_dev_instance_t * inst);
 static void rng_tx_final_cb(dw1000_dev_instance_t * inst);
 
+#define PRINT_DBG 0
+
 dw1000_rng_instance_t * 
 dw1000_rng_init(dw1000_dev_instance_t * inst, dw1000_rng_config_t * config, uint16_t nframes){
 
@@ -120,8 +122,10 @@ dw1000_rng_config(dw1000_dev_instance_t * inst, dw1000_rng_config_t * config){
 dw1000_dev_status_t 
 dw1000_rng_request(dw1000_dev_instance_t * inst, uint16_t dst_address, dw1000_rng_modes_t code){
 
-    // This function executes on the device that initiates a request 
-    
+    // This function executes on the device that initiates a request
+    #if PRINT_DBG 
+    printf("%s\n",__func__);    
+    #endif
     os_error_t err = os_sem_pend(&inst->rng->sem,  OS_TIMEOUT_NEVER);
     assert(err == OS_OK);
     
@@ -141,9 +145,13 @@ dw1000_rng_request(dw1000_dev_instance_t * inst, uint16_t dst_address, dw1000_rn
     if (rng->control.delay_start_enabled) 
         dw1000_set_delay_start(inst, rng->delay_start_until);   
     dw1000_start_tx(inst);
+    #if PRINT_DBG
+    printf("%s\n",__func__);    
+    #endif
     
     err = os_sem_pend(&inst->rng->sem, OS_TIMEOUT_NEVER); // Wait for completion of transactions 
     os_sem_release(&inst->rng->sem);
+    printf("%s\n",__func__);    
     
    return inst->status;
 }
@@ -215,6 +223,9 @@ dw1000_rng_twr_to_tof_sym(twr_frame_t twr[], dw1000_rng_modes_t code){
 static void 
 rng_tx_final_cb(dw1000_dev_instance_t * inst){
 
+    #if PRINT_DBG
+    printf("%s\n",__func__);    
+    #endif
 #ifdef DS_TWR_EXT_ENABLE
     dw1000_rng_instance_t * rng = inst->rng; 
     twr_frame_t * frame = rng->frames[(rng->idx)%rng->nframes];
@@ -233,6 +244,9 @@ rng_tx_final_cb(dw1000_dev_instance_t * inst){
 static void 
 rng_tx_complete_cb(dw1000_dev_instance_t * inst)
 {
+    #if PRINT_DBG
+    printf("%s\n", __func__);
+    #endif
     dw1000_rng_instance_t * rng = inst->rng; 
     twr_frame_t * frame = rng->frames[(rng->idx)%rng->nframes];
 
@@ -268,8 +282,10 @@ rng_tx_complete_cb(dw1000_dev_instance_t * inst)
 
 static void 
 rng_rx_timeout_cb(dw1000_dev_instance_t * inst){
-     
+    
+    #if PRINT_DBG
     printf("%s\n", __func__);
+    #endif
     if (inst->fctrl_array[0] == FCNTL_IEEE_BLINK_TAG_64){ 
 #if MYNEWT_VAL(DW1000_PAN)
         if (inst->pan_rx_timeout_cb != NULL)
@@ -282,7 +298,9 @@ rng_rx_timeout_cb(dw1000_dev_instance_t * inst){
 
 static void 
 rng_rx_error_cb(dw1000_dev_instance_t * inst){
+    #if PRINT_DBG
     printf("%s\n", __func__);
+    #endif
     os_error_t err = os_sem_release(&inst->rng->sem);   
     assert(err == OS_OK);
 }
@@ -294,35 +312,11 @@ rng_rx_complete_cb(dw1000_dev_instance_t * inst)
     dw1000_rng_config_t * config = inst->rng->config;
     dw1000_dev_control_t control = inst->control_rx_context;
 
+    #if PRINT_DBG
     printf("%s\n", __func__);
+    #endif
 
-    char *data_buf;
-    data_buf = (char *)malloc(inst->lwip->buf_len + 4);
-    assert(data_buf);
 
-    dw1000_read_rx(inst, (uint8_t *)data_buf, 0, inst->lwip->buf_len+4);
-
-    for (int i = 0; i < 4; ++i)
-    {
-        /* code */
-        printf("[%d] \n", (uint8_t)(*(data_buf+i)));
-    }
-    free(data_buf);
-    dw1000_start_rx(inst);
-    return;
-    printf("%s - 1\n", __func__);
-
-    if((*(data_buf+0) == 'L') && (*(data_buf+1) == 'W') &&
-        (*(data_buf+2) == 'I') && (*(data_buf+3) == 'P')) {
-
-        inst->lwip->data_buf[0] = (char *)(data_buf + 4);
-        free(data_buf);
-        //inst->lwip_p2p_complete_cb(inst);
-        os_sem_release(&inst->rng->sem);
-        dw1000_start_rx(inst);
-        return;
-    }
-        
     if (inst->fctrl_array[0] == FCNTL_IEEE_BLINK_CCP_64){
 #if MYNEWT_VAL(DW1000_CLOCK_CALIBRATION)
         // CCP Packet Received
