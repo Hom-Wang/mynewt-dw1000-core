@@ -135,11 +135,11 @@ dw1000_lwip_set_callbacks( dw1000_dev_instance_t * inst, dw1000_dev_cb_t tx_comp
 dw1000_dev_status_t
 dw1000_lwip_write(dw1000_dev_instance_t * inst, struct pbuf *p, dw1000_lwip_modes_t mode){
 
-	#if !MYNEWT_VAL(DW1000_LWIP_P2P)
+	//#if !MYNEWT_VAL(DW1000_LWIP_P2P)
 	/* Semaphore lock for multi-threaded applications */
 	os_error_t err = os_sem_pend(&inst->lwip->sem, OS_TIMEOUT_NEVER);
 	assert(err == OS_OK);
-	#endif
+	//#endif
 	assert(p != NULL);
 
 	char *id_pbuf, *temp_buf;
@@ -159,18 +159,18 @@ dw1000_lwip_write(dw1000_dev_instance_t * inst, struct pbuf *p, dw1000_lwip_mode
 	dw1000_write_tx(inst, (uint8_t *) id_pbuf, 0, inst->lwip->buf_len+4);
 	free(id_pbuf);
 
-	dw1000_write_tx_fctrl(inst, inst->lwip->buf_len, 0, false);
+	dw1000_write_tx_fctrl(inst, inst->lwip->buf_len, 0, true);
 	inst->lwip->netif->flags = 5 ;
 	inst->lwip->status.start_tx_error = dw1000_start_tx(inst).start_tx_error;
 
-	#if !MYNEWT_VAL(DW1000_LWIP_P2P)
+	//#if !MYNEWT_VAL(DW1000_LWIP_P2P)
 	if( mode == LWIP_BLOCKING )
 		err = os_sem_pend(&inst->lwip->sem, OS_TIMEOUT_NEVER); // Wait for completion of transactions units os_clicks
 	else
 		err = os_sem_pend(&inst->lwip->sem, 500); // Wait for completion of transactions units os_clicks
 
 	os_sem_release(&inst->lwip->sem);
-	#endif
+	//#endif
 	return inst->status;
 }
 

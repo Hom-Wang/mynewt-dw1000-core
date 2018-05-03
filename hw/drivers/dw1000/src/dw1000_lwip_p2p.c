@@ -39,8 +39,6 @@
 #include <dw1000/dw1000_lwip_p2p.h>
 #include <lwip/netif.h>
 
-//static uint16_t node_addr[] = {0x6002, 0x6003};
-
 static void lwip_p2p_postprocess(struct os_event * ev);
 static void lwip_p2p_complete_cb(dw1000_dev_instance_t * inst);
 static struct os_callout lwip_p2p_callout_timer;
@@ -53,6 +51,7 @@ static void rx_error_cb(dw1000_dev_instance_t * inst);
 
 static void
 lwip_p2p_timer_ev_cb(struct os_event *ev) {
+    
     assert(ev != NULL);
     assert(ev->ev_arg != NULL);
 
@@ -61,6 +60,7 @@ lwip_p2p_timer_ev_cb(struct os_event *ev) {
 
 static void
 lwip_p2p_timer_init(dw1000_dev_instance_t *inst) {
+
     os_callout_init(&lwip_p2p_callout_timer, os_eventq_dflt_get(), lwip_p2p_timer_ev_cb, (void *) inst);
     os_callout_reset(&lwip_p2p_callout_timer, OS_TICKS_PER_SEC/100);
     dw1000_lwip_p2p_instance_t * lwip_p2p = inst->lwip_p2p;
@@ -68,6 +68,7 @@ lwip_p2p_timer_init(dw1000_dev_instance_t *inst) {
 }
 
 static void lwip_p2p_complete_cb(dw1000_dev_instance_t *inst){
+
     dw1000_lwip_p2p_instance_t *lwip_p2p = inst->lwip_p2p;
 
     if(lwip_p2p->config.postprocess)
@@ -75,6 +76,7 @@ static void lwip_p2p_complete_cb(dw1000_dev_instance_t *inst){
 }
 
 static void lwip_p2p_postprocess(struct os_event * ev){
+
     assert(ev != NULL);
     assert(ev->ev_arg != NULL);
 
@@ -91,6 +93,7 @@ static void lwip_p2p_postprocess(struct os_event * ev){
 
 dw1000_lwip_p2p_instance_t *
 dw1000_lwip_p2p_init(dw1000_dev_instance_t * inst, uint16_t nnodes){
+
     assert(inst);
 
     if (inst->lwip_p2p == NULL ) {
@@ -99,9 +102,10 @@ dw1000_lwip_p2p_init(dw1000_dev_instance_t * inst, uint16_t nnodes){
         memset(inst->lwip_p2p, 0, sizeof(dw1000_lwip_p2p_instance_t) + ((nnodes-1)*(nnodes-2)/2) * sizeof(node_ranges_t));
         inst->lwip_p2p->status.selfmalloc = 1;
         inst->lwip_p2p->nnodes = nnodes;
-    }else{
-        assert(inst->lwip_p2p->nnodes == nnodes);
     }
+    else
+        assert(inst->lwip_p2p->nnodes == nnodes);
+
     inst->lwip_p2p->parent = inst;
     inst->lwip_p2p->config = (dw1000_lwip_p2p_config_t){
         .postprocess = false,
@@ -116,29 +120,26 @@ dw1000_lwip_p2p_init(dw1000_dev_instance_t * inst, uint16_t nnodes){
 void
 dw1000_lwip_p2p_free(dw1000_lwip_p2p_instance_t * inst){
     assert(inst);
-    if (inst->status.selfmalloc){
-        printf("%s 1\n", __func__);
+    if (inst->status.selfmalloc)
         free(inst);
-    }
-    else{
-        printf("%s 2\n", __func__);
+    else
         inst->status.initialized = 0;
-    }
 }
 
-void dw1000_lwip_p2p_set_callbacks(dw1000_dev_instance_t * inst, dw1000_dev_cb_t lwip_range_cb, 
+void dw1000_lwip_p2p_set_callbacks(dw1000_dev_instance_t * inst, dw1000_dev_cb_t lwip_p2p_complete_cb, 
                                     dw1000_dev_cb_t tx_complete_cb, dw1000_dev_cb_t rx_complete_cb, 
                                     dw1000_dev_cb_t rx_timeout_cb, dw1000_dev_cb_t rx_error_cb){
 
-    inst->lwip_p2p_complete_cb = lwip_range_cb;
-    inst->tx_complete_cb = tx_complete_cb;
-    inst->rx_complete_cb = rx_complete_cb;
-    inst->rx_timeout_cb = rx_timeout_cb;
-    inst->rx_error_cb = rx_error_cb;
+    inst->lwip_p2p_complete_cb      = lwip_p2p_complete_cb;
+    inst->lwip_p2p_tx_complete_cb   = tx_complete_cb;
+    inst->lwip_p2p_rx_complete_cb   = rx_complete_cb;
+    inst->lwip_p2p_rx_timeout_cb    = rx_timeout_cb;
+    inst->lwip_p2p_rx_error_cb      = rx_error_cb;
 }
 
 void
 dw1000_lwip_p2p_set_postprocess(dw1000_dev_instance_t * inst, os_event_fn * lwip_p2p_postprocess){
+
     os_callout_init(&lwip_p2p_callout_postprocess, os_eventq_dflt_get(), lwip_p2p_postprocess, (void *) inst);
     dw1000_lwip_p2p_instance_t * lwip_p2p = inst->lwip_p2p;
     lwip_p2p->config.postprocess = true;
@@ -147,7 +148,7 @@ dw1000_lwip_p2p_set_postprocess(dw1000_dev_instance_t * inst, os_event_fn * lwip
 
 void
 dw1000_lwip_p2p_start(dw1000_dev_instance_t * inst){
-    // Initialise frame timestamp to current time
+
     dw1000_lwip_p2p_instance_t * lwip_p2p = inst->lwip_p2p;
     lwip_p2p->idx = 0x0;
     lwip_p2p->status.valid = false;
@@ -156,22 +157,15 @@ dw1000_lwip_p2p_start(dw1000_dev_instance_t * inst){
 
 void
 dw1000_lwip_p2p_stop(dw1000_dev_instance_t * inst){
+
     os_callout_stop(&lwip_p2p_callout_timer);
 }
 
 static void 
 rx_complete_cb(dw1000_dev_instance_t * inst){
 
-    uint16_t buf_idx = (inst->lwip->buf_idx++) % inst->lwip->nframes;
-    char *data_buf = inst->lwip->data_buf[buf_idx];
-
-    dw1000_read_rx(inst, (uint8_t *) data_buf, 0, inst->lwip->buf_len);
-
-    if((*(data_buf+0) == 'L') && (*(data_buf+1) == 'W') && (*(data_buf+2) == 'I') && (*(data_buf+3) == 'P'))
-        inst->lwip_p2p_complete_cb(inst);
-
-    os_error_t err = os_sem_release(&inst->lwip->data_sem);
-    assert(err == OS_OK);
+    inst->lwip_p2p_complete_cb(inst);
+    return;
 }
 
 static void 
@@ -179,7 +173,7 @@ tx_complete_cb(dw1000_dev_instance_t * inst){
 
     if(inst->lwip_p2p->status.rng_req_rsp == 1){
         inst->lwip_p2p->status.rng_req_rsp = 0;
-        dw1000_set_rx_timeout(inst, 0);
+        dw1000_set_rx_timeout(inst, 0xFFFF);
         dw1000_start_rx(inst);
     }
 
@@ -190,6 +184,7 @@ tx_complete_cb(dw1000_dev_instance_t * inst){
 
     os_error_t err = os_sem_release(&inst->lwip->sem);
     assert(err == OS_OK);
+    return;
 }
 
 
@@ -198,8 +193,7 @@ rx_timeout_cb(dw1000_dev_instance_t * inst){
 
     inst->lwip_p2p->status.start_rng_req = 0;
     inst->lwip_p2p->status.rx_timeout_error = 1;
-    os_error_t err = os_sem_release(&inst->lwip->sem);
-    assert(err == OS_OK);
+    return;
 }
 
 
@@ -207,8 +201,11 @@ void
 rx_error_cb(dw1000_dev_instance_t * inst){
 
     inst->lwip->status.rx_error = 1;
+    #if SEM
     os_error_t err = os_sem_release(&inst->lwip->sem);
     assert(err == OS_OK);
+    #endif
+    return;
 }
 
-#endif //MYNEWT_VAL(DW1000_LWIP_p2p)
+#endif //MYNEWT_VAL(DW1000_LWIP_P2P)
