@@ -114,6 +114,7 @@ dw1000_lwip_p2p_init(dw1000_dev_instance_t * inst, uint16_t nnodes){
     dw1000_lwip_p2p_set_callbacks(inst, lwip_p2p_complete_cb, tx_complete_cb, rx_complete_cb, rx_timeout_cb, rx_error_cb);
     dw1000_lwip_p2p_set_postprocess(inst, &lwip_p2p_postprocess);
     inst->lwip_p2p->status.initialized = 1;
+    inst->lwip_p2p->status.lwip_p2p_comm = 1;
     return inst->lwip_p2p;
 }
 

@@ -63,6 +63,7 @@ typedef struct _dw1000_lwip_p2p_status_t{
     uint16_t timer_enabled:1;
     uint16_t start_rng_req:1;
     uint16_t rng_req_rsp:1;
+    uint16_t lwip_p2p_comm:1;
 }dw1000_lwip_p2p_status_t;
 
 
