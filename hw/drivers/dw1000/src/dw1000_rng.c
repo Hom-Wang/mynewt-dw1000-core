@@ -127,6 +127,7 @@ dw1000_rng_request(dw1000_dev_instance_t * inst, uint16_t dst_address, dw1000_rn
 
     // This function executes on the device that initiates a request
 
+    //printf("%s : 0x%x\n",__func__, dst_address );
     os_error_t err = os_sem_pend(&inst->rng->sem,  OS_TIMEOUT_NEVER);
     assert(err == OS_OK);
 
@@ -241,14 +242,13 @@ rng_tx_complete_cb(dw1000_dev_instance_t * inst)
     dw1000_rng_instance_t * rng = inst->rng;
     twr_frame_t * frame = rng->frames[(rng->idx)%rng->nframes];
 
-    #if 1
+    printf("%s : %d\n", __func__, inst->lwip_p2p->status.lwip_p2p_comm);
     #if MYNEWT_VAL(DW1000_LWIP_P2P)
     if( inst->lwip_p2p->status.lwip_p2p_comm == 1)
         if( (inst->lwip_p2p->status.rng_req_rsp == 1) || (inst->lwip_p2p->status.start_rng_req == 1) ){
             inst->lwip_p2p_tx_complete_cb(inst);
             return;
         }
-    #endif
     #endif
 
     if (inst->fctrl == FCNTL_IEEE_RANGE_16){
@@ -307,6 +307,7 @@ rng_rx_timeout_cb(dw1000_dev_instance_t * inst){
 static void
 rng_rx_error_cb(dw1000_dev_instance_t * inst){
 
+    printf("%s\n", __func__);
     #if 1
     #if MYNEWT_VAL(DW1000_LWIP_P2P)
     if( inst->lwip_p2p->status.lwip_p2p_comm == 1){
@@ -333,6 +334,7 @@ rng_rx_complete_cb(dw1000_dev_instance_t * inst)
     if( inst->lwip_p2p->status.lwip_p2p_comm == 1){
         uint16_t buf_idx = (inst->lwip->buf_idx++) % inst->lwip->nframes;
         char *data_buf = inst->lwip->data_buf[buf_idx];
+        //printf("%s : %d\n", __func__, __LINE__);
 
         dw1000_read_rx(inst, (uint8_t *) data_buf, 0, inst->lwip->buf_len);
 
@@ -377,6 +379,7 @@ rng_rx_complete_cb(dw1000_dev_instance_t * inst)
             inst->rng_interface_extension_cb(inst);
         return;
     }
+    //printf("%s : %d\n", __func__, __LINE__);
 
     // IEEE 802.15.4 standard ranging frames, software MAC filtering
     if (dst_address != inst->my_short_address){

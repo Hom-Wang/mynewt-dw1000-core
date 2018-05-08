@@ -280,6 +280,7 @@ err_t
 dw1000_ll_output(struct netif *dw1000_netif, struct pbuf *p){
 
 	dw1000_dev_instance_t * inst = hal_dw1000_inst(0);
+	printf("%s\n",__func__ );
 	dw1000_lwip_write(inst, p, LWIP_BLOCKING);
 
 	err_t error = ERR_OK;

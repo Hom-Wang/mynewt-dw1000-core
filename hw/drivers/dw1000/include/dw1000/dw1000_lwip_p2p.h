@@ -106,7 +106,7 @@ typedef struct _dw1000_lwip_p2p_instance_t{
  */
 typedef struct _lwip_p2p_rng_req_frame_t{
     uint16_t cmd_type;
-    uint32_t seq_num;
+    uint16_t seq_num;
     uint16_t lwip_node_addr;
     uint16_t num_dst_nodes;
     /* The two nodes between which lwip will initiate p2p. */
@@ -116,7 +116,7 @@ typedef struct _lwip_p2p_rng_req_frame_t{
 
 typedef struct _lwip_p2p_rng_resp_frame_t{
     uint16_t resp_type;
-    uint32_t seq_num;
+    uint16_t seq_num;
     uint16_t src_node_addr;
     uint16_t dst_node_addr;
     uint16_t range_val;
@@ -130,14 +130,6 @@ typedef struct _lwip_p2p_rng_resp_frame_t{
  * @return        [Return lwip p2p instance]
  */
 dw1000_lwip_p2p_instance_t * dw1000_lwip_p2p_init(dw1000_dev_instance_t * inst, uint16_t nnodes);
-
-/**
- * [dw1000_lwip_p2p_set_frames description]
- * Set the lwip frame/payload to be sent for initializing p2p of two nodes.
- * @param inst [Device instance]
- * @param twr  [Prepared frame/payload]
- */
-//void dw1000_lwip_p2p_set_frames(dw1000_dev_instance_t * inst, lwip_p2p_rng_req_frame_t twr[]);
 
 /**
  * [dw1000_lwip_p2p_free description]
