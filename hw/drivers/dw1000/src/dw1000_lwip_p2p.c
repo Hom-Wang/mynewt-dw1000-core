@@ -39,6 +39,8 @@
 #include <dw1000/dw1000_lwip_p2p.h>
 #include <lwip/netif.h>
 #include <lwip/raw.h>
+#include <lwip/ethip6.h>
+#include <lwip/pbuf.h>
 
 static void lwip_p2p_postprocess(struct os_event * ev);
 static void lwip_p2p_complete_cb(dw1000_dev_instance_t * inst);
@@ -72,7 +74,7 @@ lwip_p2p_timer_ev_cb(struct os_event *ev) {
     raw_sendto(lwip_p2p->pcb, lwip_p2p->lwip_p2p_buf, ip6_tgt_addr);
     printf("[Request Sent]\n\n");
 
-    os_callout_reset(&lwip_p2p_callout_timer, OS_TICKS_PER_SEC/16);
+    os_callout_reset(&lwip_p2p_callout_timer, OS_TICKS_PER_SEC/8);
 }
 
 static void
@@ -118,10 +120,26 @@ dw1000_lwip_p2p_init(dw1000_dev_instance_t * inst,struct raw_pcb *pcb, uint16_t 
         .postprocess = false,
     };
 
+    raw_recv(inst->lwip_p2p->pcb, dw1000_lwip_p2p_recv, inst);
+
     dw1000_lwip_p2p_set_callbacks(inst, lwip_p2p_complete_cb, tx_complete_cb, rx_complete_cb, rx_timeout_cb, rx_error_cb);
     dw1000_lwip_p2p_set_postprocess(inst, &lwip_p2p_postprocess);
     inst->lwip_p2p->status.initialized = 1;
     return inst->lwip_p2p;
+}
+
+uint8_t
+dw1000_lwip_p2p_recv(void *arg, struct raw_pcb *pcb, struct pbuf *p, const ip_addr_t *addr){
+
+    dw1000_dev_instance_t * inst = (dw1000_dev_instance_t *)arg;
+    LWIP_UNUSED_ARG(pcb);
+    LWIP_UNUSED_ARG(addr);
+    LWIP_ASSERT("p != NULL", p != NULL);
+    inst->lwip_p2p->lwip_p2p_buf = p;
+    if (pbuf_header( p, -PBUF_IP_HLEN)==0)
+        inst->lwip_p2p_complete_cb(inst);
+    memp_free(MEMP_PBUF_POOL,p);
+    return 1;
 }
 
 inline void
@@ -182,25 +200,15 @@ dw1000_lwip_p2p_stop(dw1000_dev_instance_t * inst){
 static void 
 rx_complete_cb(dw1000_dev_instance_t * inst){
 
-    char * data_buf = (char *)malloc(80);
-    assert(data_buf);
-    for (int i = 0; i < 80; ++i)
-        *(data_buf+i) = *(inst->lwip->data_buf[0]+i+4);
-
-    uint8_t err = inst->lwip->netif->input((struct pbuf *)data_buf, inst->lwip->netif);
-    if(err == 0)
-        inst->lwip_p2p_complete_cb(inst);
-    return;
+    /* Nothing to do for now. Place holder for future
+     * expansions
+     */
 }
 
 static void 
 tx_complete_cb(dw1000_dev_instance_t * inst){
 
-    os_error_t err = os_sem_release(&inst->lwip->sem);
-    assert(err == OS_OK);
-    dw1000_set_rx_timeout(inst, 0xFFFF);
-    dw1000_start_rx(inst);
-    return;
+    dw1000_lwip_start_rx(inst, 0xFFFF);
 }
 
 
@@ -215,7 +223,7 @@ rx_timeout_cb(dw1000_dev_instance_t * inst){
 void
 rx_error_cb(dw1000_dev_instance_t * inst){
 
-    inst->lwip->status.rx_error = 1;
+    inst->lwip_p2p->status.rx_error = 1;
     return;
 }
 

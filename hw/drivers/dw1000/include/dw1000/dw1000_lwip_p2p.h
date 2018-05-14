@@ -33,6 +33,7 @@ extern "C" {
 #include <dw1000/dw1000_regs.h>
 #include <dw1000/dw1000_dev.h>
 #include <dw1000/dw1000_ftypes.h>
+#include <dw1000/dw1000_lwip.h>
 
 /*
  * LWIP p2p config structure
@@ -149,6 +150,8 @@ void dw1000_lwip_p2p_start(dw1000_dev_instance_t * inst);
  */
 void dw1000_lwip_p2p_stop(dw1000_dev_instance_t * inst);
 
+uint8_t
+dw1000_lwip_p2p_recv(void *arg, struct raw_pcb *pcb, struct pbuf *p, const ip_addr_t *addr);
 
 #ifdef __cplusplus
 }

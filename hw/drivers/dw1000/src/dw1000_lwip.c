@@ -175,16 +175,14 @@ dw1000_lwip_start_rx(dw1000_dev_instance_t * inst, uint16_t timeout){
 static void 
 rx_complete_cb(dw1000_dev_instance_t * inst){
 
-#if MYNEWT_VAL(DW1000_LWIP_P2P)
-	inst->lwip_p2p_rx_complete_cb(inst);
-#else
-	uint16_t buf_idx = (inst->lwip->buf_idx++) % inst->lwip->nframes;
-	char *data_buf = inst->lwip->data_buf[ buf_idx];
-	dw1000_read_rx(inst, (uint8_t *) data_buf, 0, inst->lwip->buf_len);
-	inst->lwip->netif->input((struct pbuf *)data_buf, inst->lwip->netif);
 	os_error_t err = os_sem_release(&inst->lwip->data_sem);
 	assert(err == OS_OK);
-#endif
+	char * data_buf = (char *)malloc(80);
+    assert(data_buf);
+    for (int i = 0; i < 80; ++i)
+        *(data_buf+i) = *(inst->lwip->data_buf[0]+i+4);
+
+	inst->lwip->netif->input((struct pbuf *)data_buf, inst->lwip->netif);
 }
 
 /**
@@ -194,11 +192,12 @@ rx_complete_cb(dw1000_dev_instance_t * inst){
 static void 
 tx_complete_cb(dw1000_dev_instance_t * inst){
 
+	os_error_t err = os_sem_release(&inst->lwip->sem);
+	assert(err == OS_OK);
 #if MYNEWT_VAL(DW1000_LWIP_P2P)
 	inst->lwip_p2p_tx_complete_cb(inst);
 #endif
-	os_error_t err = os_sem_release(&inst->lwip->sem);
-	assert(err == OS_OK);
+	
 }
 
 /**
@@ -208,13 +207,10 @@ tx_complete_cb(dw1000_dev_instance_t * inst){
 static void 
 rx_timeout_cb(dw1000_dev_instance_t * inst){
 
-#if MYNEWT_VAL(DW1000_LWIP_P2P)
-	inst->lwip_p2p_rx_timeout_cb(inst);
-#else
 	os_error_t err = os_sem_release(&inst->lwip->data_sem);
 	assert(err == OS_OK);
-#endif
 	inst->lwip->status.rx_timeout_error = 1;
+	inst->lwip_p2p_rx_timeout_cb(inst);
 }
 
 /**
