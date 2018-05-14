@@ -242,13 +242,8 @@ rng_tx_complete_cb(dw1000_dev_instance_t * inst)
     dw1000_rng_instance_t * rng = inst->rng;
     twr_frame_t * frame = rng->frames[(rng->idx)%rng->nframes];
 
-    printf("%s : %d\n", __func__, inst->lwip_p2p->status.lwip_p2p_comm);
-    #if MYNEWT_VAL(DW1000_LWIP_P2P)
-    if( inst->lwip_p2p->status.lwip_p2p_comm == 1)
-        if( (inst->lwip_p2p->status.rng_req_rsp == 1) || (inst->lwip_p2p->status.start_rng_req == 1) ){
-            inst->lwip_p2p_tx_complete_cb(inst);
-            return;
-        }
+    #if MYNEWT_VAL(DW1000_LWIP)
+            inst->lwip_tx_complete_cb(inst);
     #endif
 
     if (inst->fctrl == FCNTL_IEEE_RANGE_16){
@@ -284,14 +279,8 @@ rng_tx_complete_cb(dw1000_dev_instance_t * inst)
 static void
 rng_rx_timeout_cb(dw1000_dev_instance_t * inst){
 
-    #if 1
-    #if MYNEWT_VAL(DW1000_LWIP_P2P)
-    if( inst->lwip_p2p->status.lwip_p2p_comm == 1)
-        if (inst->lwip_p2p->status.start_rng_req == 1){
-            inst->lwip_p2p_rx_timeout_cb(inst);
-            return;
-        }
-    #endif
+    #if MYNEWT_VAL(DW1000_LWIP)
+            inst->lwip_rx_timeout_cb(inst);
     #endif
 
     if (inst->fctrl_array[0] == FCNTL_IEEE_BLINK_TAG_64){
@@ -307,15 +296,9 @@ rng_rx_timeout_cb(dw1000_dev_instance_t * inst){
 static void
 rng_rx_error_cb(dw1000_dev_instance_t * inst){
 
-    printf("%s\n", __func__);
-    #if 1
-    #if MYNEWT_VAL(DW1000_LWIP_P2P)
-    if( inst->lwip_p2p->status.lwip_p2p_comm == 1){
-        inst->lwip_p2p_rx_error_cb(inst);
-        return;
-    }
-    #endif
-    #endif
+#if MYNEWT_VAL(DW1000_LWIP)
+    inst->lwip_rx_error_cb(inst);
+#endif
     
     os_error_t err = os_sem_release(&inst->rng->sem);
     assert(err == OS_OK);
@@ -328,23 +311,17 @@ rng_rx_complete_cb(dw1000_dev_instance_t * inst)
     dw1000_rng_config_t * config = inst->rng->config;
     dw1000_dev_control_t control = inst->control_rx_context;
 
-
-    #if 1
-    #if MYNEWT_VAL(DW1000_LWIP_P2P)
-    if( inst->lwip_p2p->status.lwip_p2p_comm == 1){
+#if MYNEWT_VAL(DW1000_LWIP)
         uint16_t buf_idx = (inst->lwip->buf_idx++) % inst->lwip->nframes;
         char *data_buf = inst->lwip->data_buf[buf_idx];
-        //printf("%s : %d\n", __func__, __LINE__);
 
         dw1000_read_rx(inst, (uint8_t *) data_buf, 0, inst->lwip->buf_len);
 
         if((*(data_buf+0) == 'L') && (*(data_buf+1) == 'W') && (*(data_buf+2) == 'I') && (*(data_buf+3) == 'P')){
-            inst->lwip_p2p_rx_complete_cb(inst);
+            inst->lwip_rx_complete_cb(inst);
             return;
         }
-    }
-    #endif
-    #endif
+#endif
 
     if (inst->fctrl_array[0] == FCNTL_IEEE_BLINK_CCP_64){
 #if MYNEWT_VAL(DW1000_CLOCK_CALIBRATION)
@@ -379,7 +356,6 @@ rng_rx_complete_cb(dw1000_dev_instance_t * inst)
             inst->rng_interface_extension_cb(inst);
         return;
     }
-    //printf("%s : %d\n", __func__, __LINE__);
 
     // IEEE 802.15.4 standard ranging frames, software MAC filtering
     if (dst_address != inst->my_short_address){

@@ -47,20 +47,14 @@
 #include <lwip/icmp.h>
 #include <lwip/inet_chksum.h>
 
-
-// TODOs::This file is a place holder for the lwip project
-#define NODE0 0
-
-#if !MYNEWT_VAL(DW1000_LWIP_P2P)
 static void rx_complete_cb(dw1000_dev_instance_t * inst);
 static void tx_complete_cb(dw1000_dev_instance_t * inst);
 static void rx_timeout_cb(dw1000_dev_instance_t * inst);
 static void rx_error_cb(dw1000_dev_instance_t * inst);
-#endif
+
 dw1000_lwip_context_t cntxt;
 
-
-dw1000_dev_status_t
+dw1000_dev_status_t 
 dw1000_lwip_config(dw1000_dev_instance_t * inst, dw1000_lwip_config_t * config){
 
 	assert(inst);
@@ -71,7 +65,7 @@ dw1000_lwip_config(dw1000_dev_instance_t * inst, dw1000_lwip_config_t * config){
 }
 
 
-dw1000_lwip_instance_t *
+dw1000_lwip_instance_t * 
 dw1000_lwip_init(dw1000_dev_instance_t * inst, dw1000_lwip_config_t * config, uint16_t nframes, uint16_t buf_len){
 
 	assert(inst);
@@ -99,12 +93,8 @@ dw1000_lwip_init(dw1000_dev_instance_t * inst, dw1000_lwip_config_t * config, ui
 		dw1000_lwip_config(inst, config);
 	}
 
-	#if !MYNEWT_VAL(DW1000_LWIP_P2P)
 	dw1000_lwip_set_callbacks(inst, tx_complete_cb, rx_complete_cb, rx_timeout_cb, rx_error_cb);
-	#endif
-
 	inst->lwip->status.initialized = 1;
-
 	return inst->lwip;
 }
 
@@ -120,26 +110,22 @@ dw1000_lwip_free(dw1000_lwip_instance_t * inst){
 }
 
 
-void
-dw1000_lwip_set_callbacks( dw1000_dev_instance_t * inst, dw1000_dev_cb_t tx_complete_cb, 
-				dw1000_dev_cb_t rx_complete_cb,	dw1000_dev_cb_t rx_timeout_cb, 
-				dw1000_dev_cb_t rx_error_cb){
+void dw1000_lwip_set_callbacks( dw1000_dev_instance_t * inst, dw1000_dev_cb_t tx_complete_cb,
+ 				dw1000_dev_cb_t rx_complete_cb,	dw1000_dev_cb_t rx_timeout_cb,dw1000_dev_cb_t rx_error_cb){
 
-	inst->tx_complete_cb = tx_complete_cb;
-	inst->rx_complete_cb = rx_complete_cb;
-	inst->rx_timeout_cb = rx_timeout_cb;
-	inst->rx_error_cb = rx_error_cb;
+	inst->lwip_tx_complete_cb = tx_complete_cb;
+	inst->lwip_rx_complete_cb = rx_complete_cb;
+	inst->lwip_rx_timeout_cb = rx_timeout_cb;
+	inst->lwip_rx_error_cb = rx_error_cb;
 }
 
 
-dw1000_dev_status_t
+dw1000_dev_status_t 
 dw1000_lwip_write(dw1000_dev_instance_t * inst, struct pbuf *p, dw1000_lwip_modes_t mode){
 
-	//#if !MYNEWT_VAL(DW1000_LWIP_P2P)
 	/* Semaphore lock for multi-threaded applications */
 	os_error_t err = os_sem_pend(&inst->lwip->sem, OS_TIMEOUT_NEVER);
 	assert(err == OS_OK);
-	//#endif
 	assert(p != NULL);
 
 	char *id_pbuf, *temp_buf;
@@ -151,11 +137,10 @@ dw1000_lwip_write(dw1000_dev_instance_t * inst, struct pbuf *p, dw1000_lwip_mode
 	*(id_pbuf + 2) = 'I';	*(id_pbuf + 3) = 'P';
 
 	temp_buf = (char *)p;
-	/* Copy the LWIP packet afet LWIP Id */
+	/* Copy the LWIP packet after LWIP Id */
 	for (i=0 ; i<inst->lwip->buf_len ; ++i)
 		*(id_pbuf+i+4) = *(temp_buf+i);
 
-	
 	dw1000_write_tx(inst, (uint8_t *) id_pbuf, 0, inst->lwip->buf_len+4);
 	free(id_pbuf);
 
@@ -163,19 +148,17 @@ dw1000_lwip_write(dw1000_dev_instance_t * inst, struct pbuf *p, dw1000_lwip_mode
 	inst->lwip->netif->flags = 5 ;
 	inst->lwip->status.start_tx_error = dw1000_start_tx(inst).start_tx_error;
 
-	//#if !MYNEWT_VAL(DW1000_LWIP_P2P)
 	if( mode == LWIP_BLOCKING )
 		err = os_sem_pend(&inst->lwip->sem, OS_TIMEOUT_NEVER); // Wait for completion of transactions units os_clicks
 	else
 		err = os_sem_pend(&inst->lwip->sem, 500); // Wait for completion of transactions units os_clicks
 
 	os_sem_release(&inst->lwip->sem);
-	//#endif
 	return inst->status;
 }
 
 
-void
+void 
 dw1000_lwip_start_rx(dw1000_dev_instance_t * inst, uint16_t timeout){
 
 	os_error_t err = os_sem_pend(&inst->lwip->data_sem, OS_TIMEOUT_NEVER);
@@ -185,50 +168,73 @@ dw1000_lwip_start_rx(dw1000_dev_instance_t * inst, uint16_t timeout){
 	dw1000_start_rx(inst);
 }
 
-
-#if !MYNEWT_VAL(DW1000_LWIP_P2P)
+/**
+ * [rx_complete_cb Receive complete callback function]
+ * @param inst [Device/Parent instance]
+ */
 static void 
 rx_complete_cb(dw1000_dev_instance_t * inst){
 
+#if MYNEWT_VAL(DW1000_LWIP_P2P)
+	inst->lwip_p2p_rx_complete_cb(inst);
+#else
 	uint16_t buf_idx = (inst->lwip->buf_idx++) % inst->lwip->nframes;
 	char *data_buf = inst->lwip->data_buf[ buf_idx];
-
 	dw1000_read_rx(inst, (uint8_t *) data_buf, 0, inst->lwip->buf_len);
 	inst->lwip->netif->input((struct pbuf *)data_buf, inst->lwip->netif);
 	os_error_t err = os_sem_release(&inst->lwip->data_sem);
 	assert(err == OS_OK);
-
+#endif
 }
 
+/**
+ * [tx_complete_cb Transmit complete callback function]
+ * @param inst [Device/Parent instance]
+ */
 static void 
 tx_complete_cb(dw1000_dev_instance_t * inst){
 
+#if MYNEWT_VAL(DW1000_LWIP_P2P)
+	inst->lwip_p2p_tx_complete_cb(inst);
+#endif
 	os_error_t err = os_sem_release(&inst->lwip->sem);
 	assert(err == OS_OK);
 }
 
-
+/**
+ * [rx_timeout_cb Receive mode timeout callback function]
+ * @param inst [Device/Parent instance]
+ */
 static void 
 rx_timeout_cb(dw1000_dev_instance_t * inst){
 
+#if MYNEWT_VAL(DW1000_LWIP_P2P)
+	inst->lwip_p2p_rx_timeout_cb(inst);
+#else
 	os_error_t err = os_sem_release(&inst->lwip->data_sem);
 	assert(err == OS_OK);
-
+#endif
 	inst->lwip->status.rx_timeout_error = 1;
 }
 
-
-void
+/**
+ * [rx_error_cb Receive error callback function]
+ * @param inst [Device/Parent instance]
+ */
+void 
 rx_error_cb(dw1000_dev_instance_t * inst){
 
+#if MYNEWT_VAL(DW1000_LWIP_P2P)
+	inst->lwip_p2p_rx_error_cb(inst);
+#else
 	os_error_t err = os_sem_release(&inst->lwip->data_sem);
 	assert(err == OS_OK);
-
+#endif
 	inst->lwip->status.rx_error = 1;
 }
-#endif
 
-void
+
+void 
 dw1000_low_level_init( dw1000_dev_instance_t * inst, 
 			dw1000_phy_txrf_config_t * txrf_config,
 			dwt_config_t * mac_config){
@@ -238,7 +244,7 @@ dw1000_low_level_init( dw1000_dev_instance_t * inst,
 }
 
 
-void
+void 
 dw1000_netif_config(dw1000_dev_instance_t *inst, struct netif *dw1000_netif, ip_addr_t *my_ip_addr, bool rx_status){
 
 	netif_add(dw1000_netif, NULL, dw1000_netif_init, ip6_input);
@@ -260,7 +266,7 @@ dw1000_netif_config(dw1000_dev_instance_t *inst, struct netif *dw1000_netif, ip_
 }
 
 
-err_t
+err_t 
 dw1000_netif_init(struct netif *dw1000_netif){
 
 	LWIP_ASSERT("netif != NULL", (dw1000_netif != NULL));
@@ -276,11 +282,10 @@ dw1000_netif_init(struct netif *dw1000_netif){
 }
 
 
-err_t
+err_t 
 dw1000_ll_output(struct netif *dw1000_netif, struct pbuf *p){
 
 	dw1000_dev_instance_t * inst = hal_dw1000_inst(0);
-	printf("%s\n",__func__ );
 	dw1000_lwip_write(inst, p, LWIP_BLOCKING);
 
 	err_t error = ERR_OK;
@@ -295,7 +300,7 @@ dw1000_ll_output(struct netif *dw1000_netif, struct pbuf *p){
 }
 
 
-err_t
+err_t 
 dw1000_ll_input(struct pbuf *pt, struct netif *dw1000_netif){
 
 	err_t error = ERR_OK;

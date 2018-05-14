@@ -35,14 +35,6 @@ extern "C" {
 #include <dw1000/dw1000_ftypes.h>
 
 /*
- * LWIP p2p modes
- */
-typedef enum _dw1000_lwip_p2p_modes_t{
-    LWIP_P2P_BLOCKING,
-    LWIP_P2P_NONBLOCKING
-}dw1000_lwip_p2p_modes_t;
-
-/*
  * LWIP p2p config structure
  */
 typedef struct _dw1000_lwip_p2p_config_t{
@@ -61,9 +53,6 @@ typedef struct _dw1000_lwip_p2p_status_t{
     uint16_t rx_error:1;
     uint16_t request_timeout_error:1;
     uint16_t timer_enabled:1;
-    uint16_t start_rng_req:1;
-    uint16_t rng_req_rsp:1;
-    uint16_t lwip_p2p_comm:1;
 }dw1000_lwip_p2p_status_t;
 
 
@@ -95,32 +84,14 @@ typedef struct _dw1000_lwip_p2p_instance_t{
     struct _dw1000_dev_instance_t * parent;
     dw1000_lwip_p2p_status_t status;
     dw1000_lwip_p2p_config_t config;
+    struct raw_pcb *pcb;
     uint8_t idx;
     uint16_t nnodes;
+    struct pbuf * lwip_p2p_buf;
     //lwip_p2p_node_rng_rec_t node_rng_rec_t[];
     node_ranges_t node_ranges[];
 }dw1000_lwip_p2p_instance_t;
 
-/*
- * Structure of frame to be used for lwip p2p service
- */
-typedef struct _lwip_p2p_rng_req_frame_t{
-    uint16_t cmd_type;
-    uint16_t seq_num;
-    uint16_t lwip_node_addr;
-    uint16_t num_dst_nodes;
-    /* The two nodes between which lwip will initiate p2p. */
-    uint16_t src_node_addr;
-    uint16_t dst_node_addr;
-}lwip_p2p_rng_req_frame_t;
-
-typedef struct _lwip_p2p_rng_resp_frame_t{
-    uint16_t resp_type;
-    uint16_t seq_num;
-    uint16_t src_node_addr;
-    uint16_t dst_node_addr;
-    uint16_t range_val;
-}lwip_p2p_rng_resp_frame_t;
 
 /**
  * [dw1000_lwip_p2p_init description]
@@ -129,7 +100,15 @@ typedef struct _lwip_p2p_rng_resp_frame_t{
  * @param  nnodes [Number of nodes]
  * @return        [Return lwip p2p instance]
  */
-dw1000_lwip_p2p_instance_t * dw1000_lwip_p2p_init(dw1000_dev_instance_t * inst, uint16_t nnodes);
+dw1000_lwip_p2p_instance_t * dw1000_lwip_p2p_init(dw1000_dev_instance_t * inst,struct raw_pcb *pcb, uint16_t nnodes);
+
+/**
+ * [dw1000_lwip_p2p_set_frames description]
+ * @param inst    [Device instance]
+ * @param payload [Payload pointer]
+ */
+void dw1000_lwip_p2p_set_frames(dw1000_dev_instance_t * inst, uint8_t payload_size);
+
 
 /**
  * [dw1000_lwip_p2p_free description]
