@@ -58,27 +58,6 @@ typedef struct _dw1000_lwip_p2p_status_t{
 
 
 /*
- * Structure to be used for storing p2p value b/w
- * node1 and node 2
- */
-typedef struct _node_ranges_t{
-    uint16_t src_node_addr;
-    uint16_t dst_node_addr;
-    uint16_t range_val;
-}node_ranges_t;
-
-
-typedef struct _lwip_p2p_rng_rec_t{
-    uint16_t dst_addr;
-    uint16_t range_val;
-}lwip_p2p_rng_rec_t;
-
-typedef struct _lwip_p2p_node_rng_rec_t{
-    uint16_t src_node_addr;
-    lwip_p2p_rng_rec_t rng_rec_t[];
-}lwip_p2p_node_rng_rec_t;
-
-/*
  * Lwip p2p instance Structure
  */
 typedef struct _dw1000_lwip_p2p_instance_t{
@@ -89,8 +68,6 @@ typedef struct _dw1000_lwip_p2p_instance_t{
     uint8_t idx;
     uint16_t nnodes;
     struct pbuf * lwip_p2p_buf;
-    //lwip_p2p_node_rng_rec_t node_rng_rec_t[];
-    node_ranges_t node_ranges[];
 }dw1000_lwip_p2p_instance_t;
 
 

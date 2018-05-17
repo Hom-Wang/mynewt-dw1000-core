@@ -72,9 +72,9 @@ lwip_p2p_timer_ev_cb(struct os_event *ev) {
                             MYNEWT_VAL(TGT_IP6_ADDR_3), MYNEWT_VAL(TGT_IP6_ADDR_4));
 
     raw_sendto(lwip_p2p->pcb, lwip_p2p->lwip_p2p_buf, ip6_tgt_addr);
-    printf("[Request Sent]\n\n");
+    printf("[Payload Sent]\n\n");
 
-    os_callout_reset(&lwip_p2p_callout_timer, OS_TICKS_PER_SEC/8);
+    os_callout_reset(&lwip_p2p_callout_timer, OS_TICKS_PER_SEC/4);
 }
 
 static void
@@ -105,9 +105,9 @@ dw1000_lwip_p2p_init(dw1000_dev_instance_t * inst,struct raw_pcb *pcb, uint16_t 
     assert(inst);
 
     if (inst->lwip_p2p == NULL ) {
-        inst->lwip_p2p = (dw1000_lwip_p2p_instance_t *) malloc(sizeof(dw1000_lwip_p2p_instance_t) + ((nnodes-1)*(nnodes-2)/2) * sizeof(node_ranges_t));
+        inst->lwip_p2p = (dw1000_lwip_p2p_instance_t *) malloc(sizeof(dw1000_lwip_p2p_instance_t));
         assert(inst->lwip_p2p);
-        memset(inst->lwip_p2p, 0, sizeof(dw1000_lwip_p2p_instance_t) + ((nnodes-1)*(nnodes-2)/2) * sizeof(node_ranges_t));
+        memset(inst->lwip_p2p, 0, sizeof(dw1000_lwip_p2p_instance_t));
         inst->lwip_p2p->status.selfmalloc = 1;
         inst->lwip_p2p->nnodes = nnodes;
     }
