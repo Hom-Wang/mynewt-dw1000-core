@@ -147,7 +147,6 @@ dw1000_lwip_write(dw1000_dev_instance_t * inst, struct pbuf *p, dw1000_lwip_mode
 	dw1000_write_tx_fctrl(inst, inst->lwip->buf_len, 0, true);
 	inst->lwip->netif->flags = 5 ;
 	inst->lwip->status.start_tx_error = dw1000_start_tx(inst).start_tx_error;
-
 	if( mode == LWIP_BLOCKING )
 		err = os_sem_pend(&inst->lwip->sem, OS_TIMEOUT_NEVER); // Wait for completion of transactions units os_clicks
 	else
@@ -192,11 +191,14 @@ rx_complete_cb(dw1000_dev_instance_t * inst){
 static void 
 tx_complete_cb(dw1000_dev_instance_t * inst){
 
-	os_error_t err = os_sem_release(&inst->lwip->sem);
-	assert(err == OS_OK);
+	if(os_sem_get_count(&inst->lwip->sem) == 0){
+		os_error_t err = os_sem_release(&inst->lwip->sem);
+		assert(err == OS_OK);
+	}
+#if MYNEWT_VAL(DW1000_LWIP_P2P)
 	if(inst->lwip_tx_complete_cb != NULL)
 		inst->lwip_p2p_tx_complete_cb(inst);
-	
+#endif
 }
 
 /**
@@ -209,8 +211,10 @@ rx_timeout_cb(dw1000_dev_instance_t * inst){
 	os_error_t err = os_sem_release(&inst->lwip->data_sem);
 	assert(err == OS_OK);
 	inst->lwip->status.rx_timeout_error = 1;
+#if MYNEWT_VAL(DW1000_LWIP_P2P)
 	if(inst->lwip_p2p_rx_timeout_cb != NULL)
 		inst->lwip_p2p_rx_timeout_cb(inst);
+#endif
 }
 
 /**
@@ -223,8 +227,10 @@ rx_error_cb(dw1000_dev_instance_t * inst){
 	os_error_t err = os_sem_release(&inst->lwip->data_sem);
 	assert(err == OS_OK);
 	inst->lwip->status.rx_error = 1;
+#if MYNEWT_VAL(DW1000_LWIP_P2P)
 	if(inst->lwip_p2p_rx_error_cb != NULL)
 		inst->lwip_p2p_rx_error_cb(inst);
+#endif
 }
 
 

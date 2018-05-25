@@ -151,7 +151,7 @@ dw1000_rng_request(dw1000_dev_instance_t * inst, uint16_t dst_address, dw1000_rn
     err = os_sem_pend(&inst->rng->sem, OS_TIMEOUT_NEVER); // Wait for completion of transactions
     os_sem_release(&inst->rng->sem);
 
-   return inst->status;
+    return inst->status;
 }
 
 dw1000_dev_status_t
@@ -242,8 +242,10 @@ rng_tx_complete_cb(dw1000_dev_instance_t * inst)
     dw1000_rng_instance_t * rng = inst->rng;
     twr_frame_t * frame = rng->frames[(rng->idx)%rng->nframes];
 
+    //printf("%s\n", __func__);
 #if MYNEWT_VAL(DW1000_LWIP)
-            inst->lwip_tx_complete_cb(inst);
+    if(os_sem_get_count(&inst->lwip->sem) == 0)
+        inst->lwip_tx_complete_cb(inst);
 #endif
 
     if (inst->fctrl == FCNTL_IEEE_RANGE_16){
@@ -279,6 +281,7 @@ rng_tx_complete_cb(dw1000_dev_instance_t * inst)
 static void
 rng_rx_timeout_cb(dw1000_dev_instance_t * inst){
 
+    //printf("%s\n",__func__);
 #if MYNEWT_VAL(DW1000_LWIP)
             inst->lwip_rx_timeout_cb(inst);
 #endif
@@ -310,17 +313,20 @@ rng_rx_complete_cb(dw1000_dev_instance_t * inst)
     uint16_t code, dst_address;
     dw1000_rng_config_t * config = inst->rng->config;
     dw1000_dev_control_t control = inst->control_rx_context;
-
 #if MYNEWT_VAL(DW1000_LWIP)
-    uint16_t buf_idx = (inst->lwip->buf_idx++) % inst->lwip->nframes;
-    char *data_buf = inst->lwip->data_buf[buf_idx];
+    //uint16_t buf_idx = (inst->lwip->buf_idx++) % inst->lwip->nframes;
+    //char *data_buf = inst->lwip->data_buf[buf_idx];
+    char *data_buf = inst->lwip->data_buf[0];
 
     dw1000_read_rx(inst, (uint8_t *) data_buf, 0, inst->lwip->buf_len);
 
-    if((*(data_buf+0) == 'L') && (*(data_buf+1) == 'W') && (*(data_buf+2) == 'I') && (*(data_buf+3) == 'P')){
-        inst->lwip_rx_complete_cb(inst);
-        return;
-    }
+    if(*(data_buf+0) == 'L')
+        if(*(data_buf+1) == 'W')
+            if(*(data_buf+2) == 'I')
+                if(*(data_buf+3) == 'P'){
+                    inst->lwip_rx_complete_cb(inst);
+                    return;
+                }
 #endif
 
     if (inst->fctrl_array[0] == FCNTL_IEEE_BLINK_CCP_64){
