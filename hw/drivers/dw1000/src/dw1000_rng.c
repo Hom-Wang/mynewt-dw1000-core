@@ -242,7 +242,6 @@ rng_tx_complete_cb(dw1000_dev_instance_t * inst)
     dw1000_rng_instance_t * rng = inst->rng;
     twr_frame_t * frame = rng->frames[(rng->idx)%rng->nframes];
 
-    //printf("%s\n", __func__);
 #if MYNEWT_VAL(DW1000_LWIP)
     if(os_sem_get_count(&inst->lwip->sem) == 0)
         inst->lwip_tx_complete_cb(inst);

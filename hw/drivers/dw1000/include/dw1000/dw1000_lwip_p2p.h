@@ -130,6 +130,10 @@ void dw1000_lwip_p2p_stop(dw1000_dev_instance_t * inst);
 uint8_t
 dw1000_lwip_p2p_recv(void *arg, struct raw_pcb *pcb, struct pbuf *p, const ip_addr_t *addr);
 
+void 
+dw1000_lwip_p2p_send_range_resp(struct raw_pcb *pcb, struct pbuf *p, const ip_addr_t *addr);
+
+
 #ifdef __cplusplus
 }
 #endif

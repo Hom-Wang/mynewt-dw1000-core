@@ -61,7 +61,6 @@ lwip_p2p_timer_ev_cb(struct os_event *ev) {
 
     dw1000_dev_instance_t * inst = (dw1000_dev_instance_t *)ev->ev_arg;
     
-    #if 1
         dw1000_lwip_p2p_instance_t *lwip_p2p = inst->lwip_p2p;
         
         assert(lwip_p2p->lwip_p2p_buf != NULL);
@@ -73,38 +72,7 @@ lwip_p2p_timer_ev_cb(struct os_event *ev) {
 
         raw_sendto(lwip_p2p->pcb, lwip_p2p->lwip_p2p_buf, ip6_tgt_addr);
         printf("[PS]\n");
-        os_callout_reset(&lwip_p2p_callout_timer, OS_TICKS_PER_SEC/4);
-    #else
-        dw1000_rng_instance_t * rng = inst->rng;
-        float range;
-
-        dw1000_rng_request(inst, 0x4321, DWT_DS_TWR);
-
-        twr_frame_t * frame = rng->frames[(rng->idx)%rng->nframes];
-
-        if (inst->status.start_rx_error)
-            printf("{\"utime\": %lu,\"timer_ev_cb\": \"start_rx_error\"}\n",os_cputime_ticks_to_usecs(os_cputime_get32()));
-        if (inst->status.start_tx_error)
-            printf("{\"utime\": %lu,\"timer_ev_cb\":\"start_tx_error\"}\n",os_cputime_ticks_to_usecs(os_cputime_get32()));
-        if (inst->status.rx_error)
-            printf("{\"utime\": %lu,\"timer_ev_cb\":\"rx_error\"}\n",os_cputime_ticks_to_usecs(os_cputime_get32()));
-        if (inst->status.request_timeout)
-            printf("{\"utime\": %lu,\"timer_ev_cb\":\"request_timeout\"}\n",os_cputime_ticks_to_usecs(os_cputime_get32()));
-        if (inst->status.rx_timeout_error)
-            printf("{\"utime\": %lu,\"timer_ev_cb\":\"rx_timeout_error\"}\n",os_cputime_ticks_to_usecs(os_cputime_get32()));
-
-        if (frame->code == DWT_SS_TWR_FINAL) 
-            range = dw1000_rng_tof_to_meters(dw1000_rng_twr_to_tof(rng));
-
-        if (frame->code == DWT_DS_TWR_FINAL || frame->code == DWT_DS_TWR_EXT_FINAL) {
-            range = dw1000_rng_tof_to_meters(dw1000_rng_twr_to_tof(rng));
-            printf("[Range : %d]\n",(uint16_t)(range * 1000));
-            frame->code = DWT_DS_TWR_END;
-        }
-        os_callout_reset(&lwip_p2p_callout_timer, OS_TICKS_PER_SEC/16);
-    #endif
-    //dw1000_set_delay_start(inst, 0xFFFF);
-    //dw1000_lwip_start_rx(inst, 0xFFFF);
+        os_callout_reset(&lwip_p2p_callout_timer, OS_TICKS_PER_SEC/8);
 }
 
 static void
@@ -172,6 +140,11 @@ dw1000_lwip_p2p_recv(void *arg, struct raw_pcb *pcb, struct pbuf *p, const ip_ad
         inst->lwip_p2p_complete_cb(inst);
     memp_free(MEMP_PBUF_POOL,p);
     return 1;
+}
+
+void dw1000_lwip_p2p_send_range_resp(struct raw_pcb *pcb, struct pbuf *p, const ip_addr_t *ipaddr){
+
+    raw_sendto(pcb, p, ipaddr);
 }
 
 inline void
