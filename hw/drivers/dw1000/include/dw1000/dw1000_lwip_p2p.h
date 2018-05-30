@@ -34,6 +34,11 @@ extern "C" {
 #include <dw1000/dw1000_dev.h>
 #include <dw1000/dw1000_ftypes.h>
 #include <dw1000/dw1000_lwip.h>
+#include <lwip/init.h>
+#include <lwip/raw.h>
+#include "lwip/inet_chksum.h"
+#include "lwip/icmp.h"
+#include <netif/lowpan6.h>
 
 /*
  * LWIP p2p config structure

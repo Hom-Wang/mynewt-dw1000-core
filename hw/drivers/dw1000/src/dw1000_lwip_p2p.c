@@ -33,15 +33,10 @@
 #include <dw1000/dw1000_mac.h>
 #include <dw1000/dw1000_phy.h>
 #include <dw1000/dw1000_ftypes.h>
+#include <dw1000/dw1000_rng.h>
 
 #if MYNEWT_VAL(DW1000_LWIP_P2P)
-#include <dw1000/dw1000_lwip.h>
 #include <dw1000/dw1000_lwip_p2p.h>
-#include <lwip/netif.h>
-#include <lwip/raw.h>
-#include <lwip/ethip6.h>
-#include <lwip/pbuf.h>
-#include <dw1000/dw1000_rng.h>
 
 static void lwip_p2p_postprocess(struct os_event * ev);
 static void lwip_p2p_complete_cb(dw1000_dev_instance_t * inst);
