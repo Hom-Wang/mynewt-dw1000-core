@@ -127,7 +127,6 @@ dw1000_rng_request(dw1000_dev_instance_t * inst, uint16_t dst_address, dw1000_rn
 
     // This function executes on the device that initiates a request
 
-    //printf("%s : 0x%x\n",__func__, dst_address );
     os_error_t err = os_sem_pend(&inst->rng->sem,  OS_TIMEOUT_NEVER);
     assert(err == OS_OK);
 
@@ -280,7 +279,6 @@ rng_tx_complete_cb(dw1000_dev_instance_t * inst)
 static void
 rng_rx_timeout_cb(dw1000_dev_instance_t * inst){
 
-    //printf("%s\n",__func__);
 #if MYNEWT_VAL(DW1000_LWIP)
             inst->lwip_rx_timeout_cb(inst);
 #endif
@@ -313,8 +311,6 @@ rng_rx_complete_cb(dw1000_dev_instance_t * inst)
     dw1000_rng_config_t * config = inst->rng->config;
     dw1000_dev_control_t control = inst->control_rx_context;
 #if MYNEWT_VAL(DW1000_LWIP)
-    //uint16_t buf_idx = (inst->lwip->buf_idx++) % inst->lwip->nframes;
-    //char *data_buf = inst->lwip->data_buf[buf_idx];
     char *data_buf = inst->lwip->data_buf[0];
 
     dw1000_read_rx(inst, (uint8_t *) data_buf, 0, inst->lwip->buf_len);
