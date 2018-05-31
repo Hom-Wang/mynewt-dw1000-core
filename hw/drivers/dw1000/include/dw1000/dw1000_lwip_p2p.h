@@ -69,7 +69,7 @@ typedef struct _dw1000_lwip_p2p_instance_t{
     struct _dw1000_dev_instance_t * parent;
     dw1000_lwip_p2p_status_t status;
     dw1000_lwip_p2p_config_t config;
-    struct raw_pcb *pcb;
+    struct raw_pcb * p2p_pcb;
     uint8_t idx;
     uint16_t nnodes;
     struct pbuf * lwip_p2p_buf;

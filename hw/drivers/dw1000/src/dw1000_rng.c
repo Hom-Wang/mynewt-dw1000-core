@@ -280,6 +280,7 @@ static void
 rng_rx_timeout_cb(dw1000_dev_instance_t * inst){
 
 #if MYNEWT_VAL(DW1000_LWIP)
+    if (inst->lwip_rx_timeout_cb != NULL)
             inst->lwip_rx_timeout_cb(inst);
 #endif
 

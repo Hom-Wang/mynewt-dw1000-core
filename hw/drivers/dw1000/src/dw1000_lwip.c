@@ -145,7 +145,7 @@ dw1000_lwip_write(dw1000_dev_instance_t * inst, struct pbuf *p, dw1000_lwip_mode
 	free(id_pbuf);
 
 	dw1000_write_tx_fctrl(inst, inst->lwip->buf_len, 0, true);
-	inst->lwip->netif->flags = 5 ;
+	inst->lwip->lwip_netif.flags = 5 ;
 	inst->lwip->status.start_tx_error = dw1000_start_tx(inst).start_tx_error;
 	if( mode == LWIP_BLOCKING )
 		err = os_sem_pend(&inst->lwip->sem, OS_TIMEOUT_NEVER); // Wait for completion of transactions units os_clicks
@@ -181,7 +181,7 @@ rx_complete_cb(dw1000_dev_instance_t * inst){
     for (int i = 0; i < 80; ++i)
         *(data_buf+i) = *(inst->lwip->data_buf[0]+i+4);
 
-	inst->lwip->netif->input((struct pbuf *)data_buf, inst->lwip->netif);
+	inst->lwip->lwip_netif.input((struct pbuf *)data_buf, &inst->lwip->lwip_netif);
 }
 
 /**
@@ -257,9 +257,8 @@ dw1000_netif_config(dw1000_dev_instance_t *inst, struct netif *dw1000_netif, ip_
 	netif_set_link_up(dw1000_netif);
 	netif_set_up(dw1000_netif);
 
-	inst->lwip->netif = netif_default;
 	cntxt.rx_cb.recv = dw1000_lwip_start_rx; 
-	inst->lwip->netif->state = (void*)&cntxt;
+	inst->lwip->lwip_netif.state = (void*)&cntxt;
 	
 	if(rx_status)
 		dw1000_lwip_start_rx(inst, 0xffff);

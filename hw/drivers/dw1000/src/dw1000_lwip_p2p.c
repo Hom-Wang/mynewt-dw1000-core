@@ -54,20 +54,21 @@ lwip_p2p_timer_ev_cb(struct os_event *ev) {
     assert(ev != NULL);
     assert(ev->ev_arg != NULL);
 
+    os_callout_reset(&lwip_p2p_callout_timer, OS_TICKS_PER_SEC/8);
     dw1000_dev_instance_t * inst = (dw1000_dev_instance_t *)ev->ev_arg;
     
-        dw1000_lwip_p2p_instance_t *lwip_p2p = inst->lwip_p2p;
-        
-        assert(lwip_p2p->lwip_p2p_buf != NULL);
+    dw1000_lwip_p2p_instance_t *lwip_p2p = inst->lwip_p2p;
+    
+    assert(lwip_p2p->lwip_p2p_buf != NULL);
 
-        ip_addr_t ip6_tgt_addr[LWIP_IPV6_NUM_ADDRESSES];
+    ip_addr_t ip6_tgt_addr[LWIP_IPV6_NUM_ADDRESSES];
 
-        IP_ADDR6(ip6_tgt_addr, MYNEWT_VAL(TGT_IP6_ADDR_1), MYNEWT_VAL(TGT_IP6_ADDR_2), 
-                                MYNEWT_VAL(TGT_IP6_ADDR_3), MYNEWT_VAL(TGT_IP6_ADDR_4));
+    IP_ADDR6(ip6_tgt_addr, MYNEWT_VAL(TGT_IP6_ADDR_1), MYNEWT_VAL(TGT_IP6_ADDR_2), 
+                            MYNEWT_VAL(TGT_IP6_ADDR_3), MYNEWT_VAL(TGT_IP6_ADDR_4));
 
-        raw_sendto(lwip_p2p->pcb, lwip_p2p->lwip_p2p_buf, ip6_tgt_addr);
-        printf("[PS]\n");
-        os_callout_reset(&lwip_p2p_callout_timer, OS_TICKS_PER_SEC/8);
+    raw_sendto(lwip_p2p->p2p_pcb, lwip_p2p->lwip_p2p_buf, ip6_tgt_addr);
+    printf("[PS]\n");
+    dw1000_lwip_start_rx(inst, 0xFFFF);
 }
 
 static void
@@ -95,7 +96,7 @@ lwip_p2p_postprocess(struct os_event * ev){
 }
 
 dw1000_lwip_p2p_instance_t *
-dw1000_lwip_p2p_init(dw1000_dev_instance_t * inst,struct raw_pcb *pcb, uint16_t nnodes){
+dw1000_lwip_p2p_init(dw1000_dev_instance_t * inst, struct raw_pcb *pcb, uint16_t nnodes){
 
     assert(inst);
 
@@ -110,12 +111,12 @@ dw1000_lwip_p2p_init(dw1000_dev_instance_t * inst,struct raw_pcb *pcb, uint16_t 
         assert(inst->lwip_p2p->nnodes == nnodes);
 
     inst->lwip_p2p->parent = inst;
-    inst->lwip_p2p->pcb = pcb;
+    inst->lwip_p2p->p2p_pcb = pcb;
     inst->lwip_p2p->config = (dw1000_lwip_p2p_config_t){
         .postprocess = false,
     };
 
-    raw_recv(inst->lwip_p2p->pcb, dw1000_lwip_p2p_recv, inst);
+    raw_recv(inst->lwip_p2p->p2p_pcb, dw1000_lwip_p2p_recv, inst);
 
     dw1000_lwip_p2p_set_callbacks(inst, lwip_p2p_complete_cb, tx_complete_cb, rx_complete_cb, rx_timeout_cb, rx_error_cb);
     dw1000_lwip_p2p_set_postprocess(inst, &lwip_p2p_postprocess);
@@ -208,7 +209,9 @@ rx_complete_cb(dw1000_dev_instance_t * inst){
 static void 
 tx_complete_cb(dw1000_dev_instance_t * inst){
 
-    dw1000_lwip_start_rx(inst, 0xFFFF);
+    /* Nothing to do for now. Place holder for future
+     * expansions
+     */
 }
 
 static void 

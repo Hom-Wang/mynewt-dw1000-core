@@ -36,6 +36,7 @@ extern "C" {
 #include <dw1000/dw1000_phy.h>
 #include <lwip/pbuf.h>
 #include <lwip/ip_addr.h>
+#include <lwip/netif.h>
 
 
 typedef struct _dw1000_lwip_config_t{
@@ -71,7 +72,7 @@ typedef struct _dw1000_lwip_instance_t{
     uint16_t nframes;
     uint16_t buf_idx;
     uint16_t buf_len;
-    struct netif * netif;
+    struct netif lwip_netif;
     char * data_buf[];
 }dw1000_lwip_instance_t;
 
