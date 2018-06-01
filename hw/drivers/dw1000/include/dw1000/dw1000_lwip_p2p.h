@@ -61,6 +61,18 @@ typedef struct _dw1000_lwip_p2p_status_t{
     uint16_t timer_enabled:1;
 }dw1000_lwip_p2p_status_t;
 
+typedef struct _dw1000_lwip_p2p_payload_t{
+    void *payload_ptr;
+    uint16_t payload_size;
+}dw1000_lwip_p2p_payload_t;
+
+typedef struct _dw1000_lwip_p2p_payload_info_t{
+    //uint8_t ip_addr[16];
+    ip_addr_t ip_addr[4];
+    dw1000_lwip_p2p_payload_t input_payload;
+    dw1000_lwip_p2p_payload_t output_payload;
+}dw1000_lwip_p2p_payload_info_t;
+
 
 /*
  * Lwip p2p instance Structure
@@ -69,10 +81,9 @@ typedef struct _dw1000_lwip_p2p_instance_t{
     struct _dw1000_dev_instance_t * parent;
     dw1000_lwip_p2p_status_t status;
     dw1000_lwip_p2p_config_t config;
-    struct raw_pcb * p2p_pcb;
     uint8_t idx;
     uint16_t nnodes;
-    struct pbuf * lwip_p2p_buf;
+    dw1000_lwip_p2p_payload_info_t * payload_info[];
 }dw1000_lwip_p2p_instance_t;
 
 
@@ -83,14 +94,17 @@ typedef struct _dw1000_lwip_p2p_instance_t{
  * @param  nnodes [Number of nodes]
  * @return        [Return lwip p2p instance]
  */
-dw1000_lwip_p2p_instance_t * dw1000_lwip_p2p_init(dw1000_dev_instance_t * inst,struct raw_pcb *pcb, uint16_t nnodes);
+dw1000_lwip_p2p_instance_t * dw1000_lwip_p2p_init(dw1000_dev_instance_t * inst, uint16_t nnodes, 
+        dw1000_lwip_p2p_payload_info_t payload_info[]);
+
 
 /**
  * [dw1000_lwip_p2p_set_frames description]
  * @param inst    [Device instance]
  * @param payload [Payload pointer]
  */
-void dw1000_lwip_p2p_set_frames(dw1000_dev_instance_t * inst, uint8_t payload_size);
+void dw1000_lwip_p2p_set_frames(dw1000_dev_instance_t * inst, dw1000_lwip_p2p_payload_info_t payload_info[]);
+//void dw1000_lwip_p2p_set_frames(dw1000_dev_instance_t * inst, uint8_t payload_size);
 
 
 /**
@@ -136,7 +150,8 @@ uint8_t
 dw1000_lwip_p2p_recv(void *arg, struct raw_pcb *pcb, struct pbuf *p, const ip_addr_t *addr);
 
 void 
-dw1000_lwip_p2p_send_range_resp(struct raw_pcb *pcb, struct pbuf *p, const ip_addr_t *addr);
+dw1000_lwip_p2p_send(dw1000_dev_instance_t * inst, uint8_t idx);
+//dw1000_lwip_p2p_send(struct raw_pcb *pcb, struct pbuf *p, const ip_addr_t *addr);
 
 
 #ifdef __cplusplus

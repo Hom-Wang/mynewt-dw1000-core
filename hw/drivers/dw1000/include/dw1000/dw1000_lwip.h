@@ -37,6 +37,7 @@ extern "C" {
 #include <lwip/pbuf.h>
 #include <lwip/ip_addr.h>
 #include <lwip/netif.h>
+#include <lwip/raw.h>
 
 
 typedef struct _dw1000_lwip_config_t{
@@ -73,6 +74,7 @@ typedef struct _dw1000_lwip_instance_t{
     uint16_t buf_idx;
     uint16_t buf_len;
     struct netif lwip_netif;
+    struct raw_pcb * pcb;
     char * data_buf[];
 }dw1000_lwip_instance_t;
 
@@ -104,6 +106,9 @@ dw1000_config(dw1000_dev_instance_t * inst);
 dw1000_lwip_instance_t *
 dw1000_lwip_init(dw1000_dev_instance_t * inst, dw1000_lwip_config_t * config, uint16_t nframes, uint16_t buf_len);
 
+void
+dw1000_pcb_init(dw1000_dev_instance_t * inst);
+
 /**
  * [dw1000_lwip_free Function to mark lwip serveice as free]
  * @param inst [Device/Parent Instance]
@@ -120,7 +125,12 @@ dw1000_lwip_free(dw1000_lwip_instance_t * inst);
  * @param rx_error_cb    [Receive error callback function]
  */
 void
-dw1000_lwip_set_callbacks(dw1000_dev_instance_t * inst, dw1000_dev_cb_t lwip_tx_complete_cb, dw1000_dev_cb_t lwip_rx_complete_cb,  dw1000_dev_cb_t lwip_timeout_cb,  dw1000_dev_cb_t lwip_error_cb);
+dw1000_lwip_set_callbacks(dw1000_dev_instance_t * inst, dw1000_dev_cb_t tx_complete_cb, 
+                            dw1000_dev_cb_t lwip_rx_complete_cb, dw1000_dev_cb_t rx_complete_cb, 
+                            dw1000_dev_cb_t rx_timeout_cb, dw1000_dev_cb_t rx_error_cb);
+
+//dw1000_lwip_set_callbacks(dw1000_dev_instance_t * inst, dw1000_dev_cb_t lwip_tx_complete_cb, 
+//    dw1000_dev_cb_t lwip_rx_complete_cb,  dw1000_dev_cb_t lwip_timeout_cb,  dw1000_dev_cb_t lwip_error_cb);
 
 /**
  * [dw1000_lwip_write Function to send lwIP buffer to radio]
@@ -162,6 +172,10 @@ dw1000_netif_config( dw1000_dev_instance_t * inst, struct netif *netif, ip_addr_
 err_t
 dw1000_netif_init( struct netif * dw1000_netif);
 
+void 
+dw1000_lwip_send(dw1000_dev_instance_t * inst, uint8_t idx);
+//dw1000_lwip_send(struct raw_pcb *pcb, struct pbuf *p, const ip_addr_t *ipaddr);
+
 /**
  * [dw1000_ll_output Low Level output function, acts as a brigde between 6lowPAN and radio]
  * @param  dw1000_netif [Network interface]
@@ -193,6 +207,8 @@ dw1000_lwip_start_rx(dw1000_dev_instance_t * inst, uint16_t timeout);
  * @param error [Error Type]
  */
 void print_error(err_t error);
+
+uint8_t lwip_rx_cb(void *arg, struct raw_pcb *pcb, struct pbuf *p, const ip_addr_t *addr);
 
 #ifdef __cplusplus
 }

@@ -35,6 +35,7 @@
 #include <dw1000/dw1000_mac.h>
 #include <dw1000/dw1000_ftypes.h>
 #include <dw1000/dw1000_lwip.h>
+#include <dw1000/dw1000_lwip_p2p.h>
 
 #include <dw1000/dw1000_phy.h>
 #include "sysinit/sysinit.h"
@@ -47,6 +48,7 @@
 #include <lwip/icmp.h>
 #include <lwip/inet_chksum.h>
 
+static void lwip_rx_complete_cb(dw1000_dev_instance_t * inst);
 static void rx_complete_cb(dw1000_dev_instance_t * inst);
 static void tx_complete_cb(dw1000_dev_instance_t * inst);
 static void rx_timeout_cb(dw1000_dev_instance_t * inst);
@@ -93,9 +95,25 @@ dw1000_lwip_init(dw1000_dev_instance_t * inst, dw1000_lwip_config_t * config, ui
 		dw1000_lwip_config(inst, config);
 	}
 
-	dw1000_lwip_set_callbacks(inst, tx_complete_cb, rx_complete_cb, rx_timeout_cb, rx_error_cb);
+	dw1000_lwip_set_callbacks(inst, tx_complete_cb, lwip_rx_complete_cb, rx_complete_cb, rx_timeout_cb, rx_error_cb);
 	inst->lwip->status.initialized = 1;
 	return inst->lwip;
+}
+
+void
+dw1000_pcb_init(dw1000_dev_instance_t * inst){
+
+	ip_addr_t ip6_tgt_addr[4];
+
+    IP_ADDR6(ip6_tgt_addr, MYNEWT_VAL(TGT_IP6_ADDR_1), MYNEWT_VAL(TGT_IP6_ADDR_2), 
+                            MYNEWT_VAL(TGT_IP6_ADDR_3), MYNEWT_VAL(TGT_IP6_ADDR_4));
+	struct raw_pcb * lwip_pcb;
+    lwip_pcb = raw_new(IP_PROTO_ICMP);
+    raw_bind(lwip_pcb,  inst->lwip->lwip_netif.ip6_addr);
+    raw_connect(lwip_pcb, ip6_tgt_addr);
+    inst->lwip->pcb = lwip_pcb;
+    raw_bind(inst->lwip->pcb,  inst->lwip->lwip_netif.ip6_addr);
+	raw_recv(inst->lwip->pcb, lwip_rx_cb, inst);
 }
 
 
@@ -111,14 +129,44 @@ dw1000_lwip_free(dw1000_lwip_instance_t * inst){
 
 
 void dw1000_lwip_set_callbacks( dw1000_dev_instance_t * inst, dw1000_dev_cb_t tx_complete_cb,
- 				dw1000_dev_cb_t rx_complete_cb,	dw1000_dev_cb_t rx_timeout_cb,dw1000_dev_cb_t rx_error_cb){
+ 	dw1000_dev_cb_t lwip_rx_complete_cb, dw1000_dev_cb_t rx_complete_cb,
+ 	dw1000_dev_cb_t rx_timeout_cb,dw1000_dev_cb_t rx_error_cb){
 
 	inst->lwip_tx_complete_cb = tx_complete_cb;
-	inst->lwip_rx_complete_cb = rx_complete_cb;
+	inst->raw_rx_complete_cb = rx_complete_cb;
+	inst->lwip_rx_complete_cb = lwip_rx_complete_cb;
 	inst->lwip_rx_timeout_cb = rx_timeout_cb;
 	inst->lwip_rx_error_cb = rx_error_cb;
+	//raw_recv(inst->lwip->pcb, lwip_rx_cb, inst);
 }
 
+uint8_t
+lwip_rx_cb(void *arg, struct raw_pcb *pcb, struct pbuf *p, const ip_addr_t *addr){
+
+    LWIP_UNUSED_ARG(pcb);
+    LWIP_UNUSED_ARG(addr);
+    LWIP_ASSERT("p != NULL", p != NULL);
+
+    dw1000_dev_instance_t * inst = (dw1000_dev_instance_t *)arg;
+    inst->lwip->data_buf[0] = (char *)p;
+    //inst->lwip_p2p->lwip_p2p_buf = p;
+    if (pbuf_header( p, -PBUF_IP_HLEN)==0){
+    	if(inst->lwip_rx_complete_cb != NULL)
+    	    inst->lwip_rx_complete_cb(inst);
+    }
+    memp_free(MEMP_PBUF_POOL,p);
+    return 1;
+}
+
+
+void lwip_rx_complete_cb(dw1000_dev_instance_t * inst){
+#if MYNEWT_VAL(DW1000_LWIP_P2P)
+        if(inst->lwip_p2p_rx_complete_cb != NULL){
+        	inst->lwip_p2p->payload_info[0]->input_payload.payload_ptr = (void *)inst->lwip->data_buf[0];
+        	inst->lwip_p2p_rx_complete_cb(inst);
+        }
+#endif	
+}
 
 dw1000_dev_status_t 
 dw1000_lwip_write(dw1000_dev_instance_t * inst, struct pbuf *p, dw1000_lwip_modes_t mode){
@@ -138,8 +186,15 @@ dw1000_lwip_write(dw1000_dev_instance_t * inst, struct pbuf *p, dw1000_lwip_mode
 
 	temp_buf = (char *)p;
 	/* Copy the LWIP packet after LWIP Id */
-	for (i=0 ; i<inst->lwip->buf_len ; ++i)
+	for (i=0 ; i<inst->lwip->buf_len ; ++i){
 		*(id_pbuf+i+4) = *(temp_buf+i);
+	}
+
+	#if 0
+	for (i=0 ; i<inst->lwip->buf_len ; ++i){
+		printf("[%p : 0x%x\n",(id_pbuf+i), *(id_pbuf+i));		
+	}
+	#endif
 
 	dw1000_write_tx(inst, (uint8_t *) id_pbuf, 0, inst->lwip->buf_len+4);
 	free(id_pbuf);
@@ -196,7 +251,7 @@ tx_complete_cb(dw1000_dev_instance_t * inst){
 		assert(err == OS_OK);
 	}
 #if MYNEWT_VAL(DW1000_LWIP_P2P)
-	if(inst->lwip_tx_complete_cb != NULL)
+	if(inst->lwip_p2p_tx_complete_cb != NULL)
 		inst->lwip_p2p_tx_complete_cb(inst);
 #endif
 }
@@ -235,9 +290,7 @@ rx_error_cb(dw1000_dev_instance_t * inst){
 
 
 void 
-dw1000_low_level_init( dw1000_dev_instance_t * inst, 
-			dw1000_phy_txrf_config_t * txrf_config,
-			dwt_config_t * mac_config){
+dw1000_low_level_init( dw1000_dev_instance_t * inst, dw1000_phy_txrf_config_t * txrf_config, dwt_config_t * mac_config){
 
 	dw1000_phy_init(inst, txrf_config);
 	dw1000_mac_init(inst, mac_config) ;
@@ -280,6 +333,25 @@ dw1000_netif_init(struct netif *dw1000_netif){
 	return ERR_OK;
 }
 
+void 
+dw1000_lwip_send(dw1000_dev_instance_t * inst, uint8_t idx){
+
+	uint16_t payload_size = inst->lwip_p2p->payload_info[idx]->output_payload.payload_size;
+
+	struct pbuf *pb = pbuf_alloc(PBUF_RAW, (u16_t)payload_size, PBUF_RAM);
+
+	char * payload_p2p = (char *)inst->lwip_p2p->payload_info[idx]->output_payload.payload_ptr;
+	char * payload = (char *)pb->payload;
+
+	for (int i = 0; i < payload_size; ++i)
+		*(payload+i) = *(payload_p2p+i);
+
+	//pb->payload = inst->lwip_p2p->payload_info[idx]->output_payload.payload_ptr;
+	ip_addr_t *ipaddr =inst->lwip_p2p->payload_info[idx]->ip_addr;
+
+    printf("SEND\n");
+    raw_sendto(inst->lwip->pcb, pb, ipaddr);
+}
 
 err_t 
 dw1000_ll_output(struct netif *dw1000_netif, struct pbuf *p){
@@ -304,6 +376,15 @@ dw1000_ll_input(struct pbuf *pt, struct netif *dw1000_netif){
 
 	err_t error = ERR_OK;
 	pt->payload = pt + sizeof(struct pbuf)/sizeof(struct pbuf);
+
+	#if 0
+	char * buf = (char *)pt;
+	for (int i = 0; i < 80; ++i)
+	{
+		printf("[%p : 0x%x]\n",(buf+i), *(buf+i));
+		/* code */
+	}
+	#endif
 	error = lowpan6_input(pt, dw1000_netif);
 	print_error(error);
 

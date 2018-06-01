@@ -320,7 +320,7 @@ rng_rx_complete_cb(dw1000_dev_instance_t * inst)
         if(*(data_buf+1) == 'W')
             if(*(data_buf+2) == 'I')
                 if(*(data_buf+3) == 'P'){
-                    inst->lwip_rx_complete_cb(inst);
+                    inst->raw_rx_complete_cb(inst);
                     return;
                 }
 #endif
