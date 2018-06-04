@@ -174,7 +174,7 @@ err_t
 dw1000_netif_init( struct netif * dw1000_netif);
 
 void 
-dw1000_lwip_send(dw1000_dev_instance_t * inst, uint8_t idx);
+dw1000_lwip_send(dw1000_dev_instance_t * inst, uint16_t payload_size, char * payload, ip_addr_t * ipaddr);
 //dw1000_lwip_send(struct raw_pcb *pcb, struct pbuf *p, const ip_addr_t *ipaddr);
 
 /**

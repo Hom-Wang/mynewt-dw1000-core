@@ -117,25 +117,14 @@ dw1000_lwip_p2p_init(dw1000_dev_instance_t * inst, uint16_t nnodes, dw1000_lwip_
     return inst->lwip_p2p;
 }
 
-#if 0
-uint8_t
-dw1000_lwip_p2p_recv(void *arg, struct raw_pcb *pcb, struct pbuf *p, const ip_addr_t *addr){
+void 
+dw1000_lwip_p2p_send(dw1000_dev_instance_t * inst, uint8_t idx){
 
-    dw1000_dev_instance_t * inst = (dw1000_dev_instance_t *)arg;
-    LWIP_UNUSED_ARG(pcb);
-    LWIP_UNUSED_ARG(addr);
-    LWIP_ASSERT("p != NULL", p != NULL);
-    inst->lwip_p2p->lwip_p2p_buf = p;
-    if (pbuf_header( p, -PBUF_IP_HLEN)==0)
-        inst->lwip_p2p_complete_cb(inst);
-    memp_free(MEMP_PBUF_POOL,p);
-    return 1;
-}
-#endif
+    uint16_t payload_size = inst->lwip_p2p->payload_info[idx]->output_payload.payload_size;
+    ip_addr_t *ipaddr =inst->lwip_p2p->payload_info[idx]->ip_addr;
+    char * payload_p2p = (char *)inst->lwip_p2p->payload_info[idx]->output_payload.payload_ptr;
 
-void dw1000_lwip_p2p_send(dw1000_dev_instance_t * inst, uint8_t idx){
-
-    dw1000_lwip_send(inst, idx);
+    dw1000_lwip_send(inst, payload_size, payload_p2p, ipaddr);
 }
 
 inline void
@@ -196,16 +185,7 @@ dw1000_lwip_p2p_stop(dw1000_dev_instance_t * inst){
 static void 
 rx_complete_cb(dw1000_dev_instance_t * inst){
 
-    #if 0
-        char *buf = inst->lwip_p2p->payload_info[0]->input_payload.payload_ptr;
-        for (int i = 0; i < 10; ++i)
-        {
-            printf("0x%x\n",*(buf+i));
-            /* code */
-        }
-    #endif
     inst->lwip_p2p->payload_info[0]->input_payload.payload_ptr = inst->lwip->payload_ptr;
-
     inst->lwip_p2p_complete_cb(inst);
 }
 

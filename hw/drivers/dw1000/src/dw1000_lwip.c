@@ -149,17 +149,6 @@ lwip_rx_cb(void *arg, struct raw_pcb *pcb, struct pbuf *p, const ip_addr_t *addr
 
     dw1000_dev_instance_t * inst = (dw1000_dev_instance_t *)arg;
        
-    #if 0
-    pbuf_header( p, -PBUF_IP_HLEN) ;
-
-    //char *buf = (char *)p->payload;
-    char *buf = (char *)p->payload;
-    for (int i = 0; i < 24; ++i)
-    {
-    	printf("[%p : 0x%x]\n",(buf+i), *(buf+i));
-    }
-    #endif
-
     if (pbuf_header( p, -PBUF_IP_HLEN)==0){
     	inst->lwip->payload_ptr = p->payload;
 
@@ -174,7 +163,6 @@ lwip_rx_cb(void *arg, struct raw_pcb *pcb, struct pbuf *p, const ip_addr_t *addr
 void lwip_rx_complete_cb(dw1000_dev_instance_t * inst){
 #if MYNEWT_VAL(DW1000_LWIP_P2P)
         if(inst->lwip_p2p_rx_complete_cb != NULL){
-        	//inst->lwip_p2p->payload_info[0]->input_payload.payload_ptr = inst->lwip->payload_ptr;
         	inst->lwip_p2p_rx_complete_cb(inst);
         }
 #endif	
@@ -246,13 +234,6 @@ rx_complete_cb(dw1000_dev_instance_t * inst){
     struct pbuf * buf = (struct pbuf *)data_buf;
     buf->payload = buf + 1;
 
-    #if 0
-    for (int i = 0; i < 80; ++i)
-    {
-    	printf("\t[%p : 0x%x]\n",(data_buf +i), *(data_buf+i));
-    	/* code */
-    }
-    #endif
 	inst->lwip->lwip_netif.input((struct pbuf *)data_buf, &inst->lwip->lwip_netif);
 }
 
@@ -351,22 +332,15 @@ dw1000_netif_init(struct netif *dw1000_netif){
 }
 
 void 
-dw1000_lwip_send(dw1000_dev_instance_t * inst, uint8_t idx){
-
-	uint16_t payload_size = inst->lwip_p2p->payload_info[idx]->output_payload.payload_size;
+dw1000_lwip_send(dw1000_dev_instance_t * inst, uint16_t payload_size, char * payload, ip_addr_t * ipaddr){
 
 	struct pbuf *pb = pbuf_alloc(PBUF_RAW, (u16_t)payload_size, PBUF_RAM);
 
-	char * payload_p2p = (char *)inst->lwip_p2p->payload_info[idx]->output_payload.payload_ptr;
-	char * payload = (char *)pb->payload;
+	char * payload_lwip = (char *)pb->payload;
 
 	for (int i = 0; i < payload_size; ++i)
-		*(payload+i) = *(payload_p2p+i);
+		*(payload_lwip+i) = *(payload+i);
 
-	//pb->payload = inst->lwip_p2p->payload_info[idx]->output_payload.payload_ptr;
-	ip_addr_t *ipaddr =inst->lwip_p2p->payload_info[idx]->ip_addr;
-
-    printf("SEND\n");
     raw_sendto(inst->lwip->pcb, pb, ipaddr);
 }
 
