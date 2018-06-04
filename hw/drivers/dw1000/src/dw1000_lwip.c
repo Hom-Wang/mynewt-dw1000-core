@@ -148,11 +148,23 @@ lwip_rx_cb(void *arg, struct raw_pcb *pcb, struct pbuf *p, const ip_addr_t *addr
     LWIP_ASSERT("p != NULL", p != NULL);
 
     dw1000_dev_instance_t * inst = (dw1000_dev_instance_t *)arg;
-    inst->lwip->data_buf[0] = (char *)p;
-    //inst->lwip_p2p->lwip_p2p_buf = p;
+       
+    #if 0
+    pbuf_header( p, -PBUF_IP_HLEN) ;
+
+    //char *buf = (char *)p->payload;
+    char *buf = (char *)p->payload;
+    for (int i = 0; i < 24; ++i)
+    {
+    	printf("[%p : 0x%x]\n",(buf+i), *(buf+i));
+    }
+    #endif
+
     if (pbuf_header( p, -PBUF_IP_HLEN)==0){
-    	if(inst->lwip_rx_complete_cb != NULL)
-    	    inst->lwip_rx_complete_cb(inst);
+    	inst->lwip->payload_ptr = p->payload;
+
+		if(inst->lwip_rx_complete_cb != NULL)
+	    inst->lwip_rx_complete_cb(inst);
     }
     memp_free(MEMP_PBUF_POOL,p);
     return 1;
@@ -162,7 +174,7 @@ lwip_rx_cb(void *arg, struct raw_pcb *pcb, struct pbuf *p, const ip_addr_t *addr
 void lwip_rx_complete_cb(dw1000_dev_instance_t * inst){
 #if MYNEWT_VAL(DW1000_LWIP_P2P)
         if(inst->lwip_p2p_rx_complete_cb != NULL){
-        	inst->lwip_p2p->payload_info[0]->input_payload.payload_ptr = (void *)inst->lwip->data_buf[0];
+        	//inst->lwip_p2p->payload_info[0]->input_payload.payload_ptr = inst->lwip->payload_ptr;
         	inst->lwip_p2p_rx_complete_cb(inst);
         }
 #endif	
@@ -189,12 +201,6 @@ dw1000_lwip_write(dw1000_dev_instance_t * inst, struct pbuf *p, dw1000_lwip_mode
 	for (i=0 ; i<inst->lwip->buf_len ; ++i){
 		*(id_pbuf+i+4) = *(temp_buf+i);
 	}
-
-	#if 0
-	for (i=0 ; i<inst->lwip->buf_len ; ++i){
-		printf("[%p : 0x%x\n",(id_pbuf+i), *(id_pbuf+i));		
-	}
-	#endif
 
 	dw1000_write_tx(inst, (uint8_t *) id_pbuf, 0, inst->lwip->buf_len+4);
 	free(id_pbuf);
@@ -232,10 +238,21 @@ rx_complete_cb(dw1000_dev_instance_t * inst){
 	os_error_t err = os_sem_release(&inst->lwip->data_sem);
 	assert(err == OS_OK);
 	char * data_buf = (char *)malloc(80);
-    assert(data_buf);
+    assert(data_buf != NULL);
+
     for (int i = 0; i < 80; ++i)
         *(data_buf+i) = *(inst->lwip->data_buf[0]+i+4);
 
+    struct pbuf * buf = (struct pbuf *)data_buf;
+    buf->payload = buf + 1;
+
+    #if 0
+    for (int i = 0; i < 80; ++i)
+    {
+    	printf("\t[%p : 0x%x]\n",(data_buf +i), *(data_buf+i));
+    	/* code */
+    }
+    #endif
 	inst->lwip->lwip_netif.input((struct pbuf *)data_buf, &inst->lwip->lwip_netif);
 }
 
@@ -377,14 +394,6 @@ dw1000_ll_input(struct pbuf *pt, struct netif *dw1000_netif){
 	err_t error = ERR_OK;
 	pt->payload = pt + sizeof(struct pbuf)/sizeof(struct pbuf);
 
-	#if 0
-	char * buf = (char *)pt;
-	for (int i = 0; i < 80; ++i)
-	{
-		printf("[%p : 0x%x]\n",(buf+i), *(buf+i));
-		/* code */
-	}
-	#endif
 	error = lowpan6_input(pt, dw1000_netif);
 	print_error(error);
 

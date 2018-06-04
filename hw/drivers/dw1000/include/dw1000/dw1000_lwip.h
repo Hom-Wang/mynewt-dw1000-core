@@ -75,6 +75,7 @@ typedef struct _dw1000_lwip_instance_t{
     uint16_t buf_len;
     struct netif lwip_netif;
     struct raw_pcb * pcb;
+    void * payload_ptr;
     char * data_buf[];
 }dw1000_lwip_instance_t;
 

@@ -103,7 +103,7 @@ dw1000_lwip_p2p_instance_t * dw1000_lwip_p2p_init(dw1000_dev_instance_t * inst, 
  * @param inst    [Device instance]
  * @param payload [Payload pointer]
  */
-void dw1000_lwip_p2p_set_frames(dw1000_dev_instance_t * inst, dw1000_lwip_p2p_payload_info_t payload_info[]);
+void dw1000_lwip_p2p_set_frames(dw1000_dev_instance_t * inst, uint16_t nnodes, dw1000_lwip_p2p_payload_info_t payload_info[]);
 //void dw1000_lwip_p2p_set_frames(dw1000_dev_instance_t * inst, uint8_t payload_size);
 
 
