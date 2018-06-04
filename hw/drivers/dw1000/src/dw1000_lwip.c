@@ -188,7 +188,8 @@ dw1000_lwip_write(dw1000_dev_instance_t * inst, struct pbuf *p, dw1000_lwip_mode
 
 	dw1000_write_tx(inst, (uint8_t *)id_pbuf, 0, inst->lwip->buf_len+4);
 	free(id_pbuf);
-
+    pbuf_free(p);
+    
 	dw1000_write_tx_fctrl(inst, inst->lwip->buf_len, 0, true);
 	inst->lwip->lwip_netif.flags = NETIF_FLAG_UP | NETIF_FLAG_LINK_UP ;
 	inst->lwip->status.start_tx_error = dw1000_start_tx(inst).start_tx_error;
@@ -338,6 +339,7 @@ dw1000_lwip_send(dw1000_dev_instance_t * inst, uint16_t payload_size, char * pay
 	memcpy(payload_lwip, payload, payload_size)	;
 
     raw_sendto(inst->lwip->pcb, pb, ipaddr);
+    pbuf_free(pb);
 }
 
 err_t 

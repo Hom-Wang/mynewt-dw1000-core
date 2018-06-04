@@ -59,7 +59,7 @@ lwip_p2p_timer_ev_cb(struct os_event *ev) {
     uint8_t idx=0;
 
     dw1000_lwip_p2p_send(inst, idx);
-    os_callout_reset(&lwip_p2p_callout_timer, OS_TICKS_PER_SEC/4);
+    os_callout_reset(&lwip_p2p_callout_timer, OS_TICKS_PER_SEC/12);
     dw1000_lwip_start_rx(inst, 0xFFFF);
 }
 
@@ -183,7 +183,10 @@ dw1000_lwip_p2p_stop(dw1000_dev_instance_t * inst){
 static void 
 rx_complete_cb(dw1000_dev_instance_t * inst){
 
-    inst->lwip_p2p->payload_info[0]->input_payload.payload_ptr = inst->lwip->payload_ptr;
+    uint8_t payload_size = inst->lwip_p2p->payload_info[0]->input_payload.payload_size;
+
+    memcpy(inst->lwip_p2p->payload_info[0]->input_payload.payload_ptr, inst->lwip->payload_ptr, payload_size);
+
     inst->lwip_p2p_complete_cb(inst);
 }
 
