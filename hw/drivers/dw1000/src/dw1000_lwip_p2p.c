@@ -59,8 +59,7 @@ lwip_p2p_timer_ev_cb(struct os_event *ev) {
     uint8_t idx=0;
 
     dw1000_lwip_p2p_send(inst, idx);
-    printf("[PS]\n");
-    os_callout_reset(&lwip_p2p_callout_timer, OS_TICKS_PER_SEC/2);
+    os_callout_reset(&lwip_p2p_callout_timer, OS_TICKS_PER_SEC/12);
     dw1000_lwip_start_rx(inst, 0xFFFF);
 }
 
