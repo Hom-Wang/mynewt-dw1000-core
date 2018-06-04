@@ -186,11 +186,11 @@ dw1000_lwip_write(dw1000_dev_instance_t * inst, struct pbuf *p, dw1000_lwip_mode
 	/* Copy the LWIP packet after LWIP Id */
 	memcpy(id_pbuf+4, temp_buf, inst->lwip->buf_len);
 
-	dw1000_write_tx(inst, (uint8_t *) id_pbuf, 0, inst->lwip->buf_len+4);
+	dw1000_write_tx(inst, (uint8_t *)id_pbuf, 0, inst->lwip->buf_len+4);
 	free(id_pbuf);
 
 	dw1000_write_tx_fctrl(inst, inst->lwip->buf_len, 0, true);
-	inst->lwip->lwip_netif.flags = 5 ;
+	inst->lwip->lwip_netif.flags = NETIF_FLAG_UP | NETIF_FLAG_LINK_UP ;
 	inst->lwip->status.start_tx_error = dw1000_start_tx(inst).start_tx_error;
 	if( mode == LWIP_BLOCKING )
 		err = os_sem_pend(&inst->lwip->sem, OS_TIMEOUT_NEVER); // Wait for completion of transactions units os_clicks
@@ -221,10 +221,11 @@ rx_complete_cb(dw1000_dev_instance_t * inst){
 
 	os_error_t err = os_sem_release(&inst->lwip->data_sem);
 	assert(err == OS_OK);
-	char * data_buf = (char *)malloc(80);
-    assert(data_buf != NULL);
 
     uint8_t buf_size = inst->lwip->buf_len;
+
+    char * data_buf = (char *)malloc(buf_size);
+    assert(data_buf != NULL);
 
     memcpy(data_buf,inst->lwip->data_buf[0]+4, buf_size);
 
