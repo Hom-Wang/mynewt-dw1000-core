@@ -147,6 +147,7 @@ lwip_rx_cb(void *arg, struct raw_pcb *pcb, struct pbuf *p, const ip_addr_t *addr
     LWIP_ASSERT("p != NULL", p != NULL);
 
     dw1000_dev_instance_t * inst = (dw1000_dev_instance_t *)arg;
+    inst->lwip->status.pkt_discard = 0;
        
     if (pbuf_header( p, -PBUF_IP_HLEN)==0){
     	inst->lwip->payload_ptr = p->payload;
@@ -223,6 +224,7 @@ rx_complete_cb(dw1000_dev_instance_t * inst){
 	os_error_t err = os_sem_release(&inst->lwip->data_sem);
 	assert(err == OS_OK);
 
+	inst->lwip->status.pkt_discard = 1;
     uint8_t buf_size = inst->lwip->buf_len;
 
     char * data_buf = (char *)malloc(buf_size);
@@ -234,6 +236,9 @@ rx_complete_cb(dw1000_dev_instance_t * inst){
     buf->payload = buf + sizeof(struct pbuf)/sizeof(struct pbuf);
 
 	inst->lwip->lwip_netif.input((struct pbuf *)data_buf, &inst->lwip->lwip_netif);
+
+	if(inst->lwip->status.pkt_discard)
+		dw1000_lwip_start_rx(inst,0x0000);
 }
 
 /**
