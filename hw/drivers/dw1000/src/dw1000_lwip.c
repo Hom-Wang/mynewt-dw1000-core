@@ -232,7 +232,6 @@ rx_complete_cb(dw1000_dev_instance_t * inst){
     memcpy(&pkt_addr,inst->lwip->data_buf[0]+4, 2);
 
     pkt_addr = (uint8_t)(*(inst->lwip->data_buf[0]+4)) + ((uint8_t)(*(inst->lwip->data_buf[0]+5)) << 8);
-    printf("ADDR : 0x%x\n",pkt_addr );
 
     if(pkt_addr == inst->my_short_address){
         char * data_buf = (char *)malloc(buf_size);
