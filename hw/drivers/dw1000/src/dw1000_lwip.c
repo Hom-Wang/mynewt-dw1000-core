@@ -147,7 +147,6 @@ lwip_rx_cb(void *arg, struct raw_pcb *pcb, struct pbuf *p, const ip_addr_t *addr
     LWIP_ASSERT("p != NULL", p != NULL);
 
     dw1000_dev_instance_t * inst = (dw1000_dev_instance_t *)arg;
-    inst->lwip->status.pkt_discard = 0;
        
     if (pbuf_header( p, -PBUF_IP_HLEN)==0){
     	inst->lwip->payload_ptr = p->payload;
@@ -177,15 +176,19 @@ dw1000_lwip_write(dw1000_dev_instance_t * inst, struct pbuf *p, dw1000_lwip_mode
 	assert(p != NULL);
 
 	char *id_pbuf, *temp_buf;
-	id_pbuf = (char *)malloc((inst->lwip->buf_len) + 4);
+	id_pbuf = (char *)malloc((inst->lwip->buf_len) + 4+2);
 	assert(id_pbuf);
 	/* Append the 'L' 'W' 'I' 'P' Identifier */
 	*(id_pbuf + 0) = 'L';	*(id_pbuf + 1) = 'W';
 	*(id_pbuf + 2) = 'I';	*(id_pbuf + 3) = 'P';
 
+	/* Append the destination Short Address */
+	*(id_pbuf + 4) = (char)((inst->lwip->dst_addr >> 0) & 0xFF);
+	*(id_pbuf + 5) = (char)((inst->lwip->dst_addr >> 8) & 0xFF);
+
 	temp_buf = (char *)p;
 	/* Copy the LWIP packet after LWIP Id */
-	memcpy(id_pbuf+4, temp_buf, inst->lwip->buf_len);
+	memcpy(id_pbuf+4+2, temp_buf, inst->lwip->buf_len);
 
 	dw1000_write_tx(inst, (uint8_t *)id_pbuf, 0, inst->lwip->buf_len+4);
 	free(id_pbuf);
@@ -207,11 +210,11 @@ dw1000_lwip_write(dw1000_dev_instance_t * inst, struct pbuf *p, dw1000_lwip_mode
 void 
 dw1000_lwip_start_rx(dw1000_dev_instance_t * inst, uint16_t timeout){
 
-	os_error_t err = os_sem_pend(&inst->lwip->data_sem, OS_TIMEOUT_NEVER);
-	assert(err == OS_OK);
+    os_error_t err = os_sem_pend(&inst->lwip->data_sem, OS_TIMEOUT_NEVER);
+    assert(err == OS_OK);
 
-	dw1000_set_rx_timeout(inst, timeout);
-	dw1000_start_rx(inst);
+    dw1000_set_rx_timeout(inst, timeout);
+    dw1000_start_rx(inst);
 }
 
 /**
@@ -221,24 +224,29 @@ dw1000_lwip_start_rx(dw1000_dev_instance_t * inst, uint16_t timeout){
 static void 
 rx_complete_cb(dw1000_dev_instance_t * inst){
 
-	os_error_t err = os_sem_release(&inst->lwip->data_sem);
-	assert(err == OS_OK);
+    os_error_t err = os_sem_release(&inst->lwip->data_sem);
+    assert(err == OS_OK);
 
-	inst->lwip->status.pkt_discard = 1;
     uint8_t buf_size = inst->lwip->buf_len;
+    uint16_t pkt_addr;
+    memcpy(&pkt_addr,inst->lwip->data_buf[0]+4, 2);
 
-    char * data_buf = (char *)malloc(buf_size);
-    assert(data_buf != NULL);
+    pkt_addr = (uint8_t)(*(inst->lwip->data_buf[0]+4)) + ((uint8_t)(*(inst->lwip->data_buf[0]+5)) << 8);
+    printf("ADDR : 0x%x\n",pkt_addr );
 
-    memcpy(data_buf,inst->lwip->data_buf[0]+4, buf_size);
+    if(pkt_addr == inst->my_short_address){
+        char * data_buf = (char *)malloc(buf_size);
+        assert(data_buf != NULL);
 
-    struct pbuf * buf = (struct pbuf *)data_buf;
-    buf->payload = buf + sizeof(struct pbuf)/sizeof(struct pbuf);
+        memcpy(data_buf,inst->lwip->data_buf[0]+4+2, buf_size);
 
-	inst->lwip->lwip_netif.input((struct pbuf *)data_buf, &inst->lwip->lwip_netif);
+        struct pbuf * buf = (struct pbuf *)data_buf;
+        buf->payload = buf + sizeof(struct pbuf)/sizeof(struct pbuf);
 
-	if(inst->lwip->status.pkt_discard)
-		dw1000_lwip_start_rx(inst,0x0000);
+        inst->lwip->lwip_netif.input((struct pbuf *)data_buf, &inst->lwip->lwip_netif);
+	}
+    else
+        dw1000_lwip_start_rx(inst,0x0000);
 }
 
 /**
@@ -341,7 +349,7 @@ dw1000_lwip_send(dw1000_dev_instance_t * inst, uint16_t payload_size, char * pay
 	struct pbuf *pb = pbuf_alloc(PBUF_RAW, (u16_t)payload_size, PBUF_RAM);
 	char * payload_lwip = (char *)pb->payload;
 
-	memcpy(payload_lwip, payload, payload_size)	;
+	memcpy(payload_lwip, payload, payload_size);
 
     raw_sendto(inst->lwip->pcb, pb, ipaddr);
     pbuf_free(pb);

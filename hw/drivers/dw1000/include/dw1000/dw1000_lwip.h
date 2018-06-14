@@ -60,7 +60,6 @@ typedef struct _dw1000_lwip_status_t{
     uint32_t rx_error:1;
     uint32_t rx_timeout_error:1;
     uint32_t request_timeout:1;
-    uint32_t pkt_discard:1;
 }dw1000_lwip_status_t;
 
 typedef struct _dw1000_lwip_instance_t{
@@ -74,6 +73,7 @@ typedef struct _dw1000_lwip_instance_t{
     uint16_t nframes;
     uint16_t buf_idx;
     uint16_t buf_len;
+    uint16_t dst_addr;
     struct netif lwip_netif;
     struct raw_pcb * pcb;
     void * payload_ptr;
