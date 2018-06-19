@@ -150,9 +150,18 @@ typedef struct _dw1000_dev_instance_t{
   
 #if MYNEWT_VAL(DW1000_LWIP)
     void (* lwip_tx_complete_cb) (struct _dw1000_dev_instance_t *);
+    void (* raw_rx_complete_cb) (struct _dw1000_dev_instance_t *);
     void (* lwip_rx_complete_cb) (struct _dw1000_dev_instance_t *);
     void (* lwip_rx_timeout_cb) (struct _dw1000_dev_instance_t *);
     void (* lwip_rx_error_cb) (struct _dw1000_dev_instance_t *);
+#endif
+
+#if MYNEWT_VAL(DW1000_LWIP_P2P)
+    void (* lwip_p2p_complete_cb) (struct _dw1000_dev_instance_t *); 
+    void (* lwip_p2p_tx_complete_cb) (struct _dw1000_dev_instance_t *);
+    void (* lwip_p2p_rx_complete_cb) (struct _dw1000_dev_instance_t *);
+    void (* lwip_p2p_rx_timeout_cb) (struct _dw1000_dev_instance_t *);
+    void (* lwip_p2p_rx_error_cb) (struct _dw1000_dev_instance_t *);
 #endif
 
 #if MYNEWT_VAL(DW1000_CLOCK_CALIBRATION)
@@ -223,6 +232,9 @@ typedef struct _dw1000_dev_instance_t{
 #endif
 #if MYNEWT_VAL(DW1000_PROVISION)
     struct _dw1000_provision_instance_t *provision;
+#endif
+#if MYNEWT_VAL(DW1000_LWIP_P2P)
+    struct _dw1000_lwip_p2p_instance_t * lwip_p2p;
 #endif
 #if MYNEWT_VAL(DW1000_CLOCK_CALIBRATION)
     struct _dw1000_ccp_instance_t * ccp;
