@@ -57,15 +57,13 @@ lwip_p2p_timer_ev_cb(struct os_event *ev) {
     dw1000_dev_instance_t * inst = (dw1000_dev_instance_t *)ev->ev_arg;
     dw1000_lwip_p2p_instance_t * lwip_p2p = inst->lwip_p2p;
     
-    uint32_t idx = lwip_p2p->idx++ % lwip_p2p->nnodes;
+    uint32_t idx = lwip_p2p->idx++ % ((lwip_p2p->nnodes)*(lwip_p2p->nnodes - 1)/2);
 
+    printf("\t[0x%x], ",idx, lwip_p2p->payload_info[idx]->node_addr);
     inst->lwip->dst_addr = lwip_p2p->payload_info[idx]->node_addr;
 
-
-    if(idx <=2) // Added for a specific use case, need to remove for general case. :- Lucky Tyagi //
-        dw1000_lwip_p2p_send(inst, idx);
-
-    os_callout_reset(&lwip_p2p_callout_timer, OS_TICKS_PER_SEC/8);
+    dw1000_lwip_p2p_send(inst, idx);
+    os_callout_reset(&lwip_p2p_callout_timer, OS_TICKS_PER_SEC/2);
     dw1000_lwip_start_rx(inst, 0xFFFF);
 }
 
@@ -102,7 +100,7 @@ dw1000_lwip_p2p_init(dw1000_dev_instance_t * inst, uint16_t nnodes,
 
     if (inst->lwip_p2p == NULL ) {
         inst->lwip_p2p = (dw1000_lwip_p2p_instance_t *)malloc( sizeof(dw1000_lwip_p2p_instance_t) + 
-                                    nnodes * ( (sizeof(dw1000_lwip_p2p_payload_info_t *)) + 
+                                    ((nnodes * (nnodes-1))/2) * ( (sizeof(dw1000_lwip_p2p_payload_info_t *)) + 
                                         (sizeof(dw1000_lwip_p2p_node_address_t *))) );
         assert(inst->lwip_p2p);
         memset(inst->lwip_p2p, 0, sizeof(dw1000_lwip_p2p_instance_t));
@@ -139,10 +137,9 @@ inline void
 dw1000_lwip_p2p_set_frames(dw1000_dev_instance_t * inst,uint16_t nnodes,dw1000_lwip_p2p_node_address_t node_addr[], 
                              dw1000_lwip_p2p_payload_info_t payload_info[]){
 
-    for(uint16_t i=0 ; i < nnodes ; i++){
-        payload_info[i].node_addr = node_addr[i].node_addr;
+    for(uint16_t i=0 ; i < ((nnodes) * (nnodes-1))/2 ; i++)
         inst->lwip_p2p->payload_info[i] = &payload_info[i];
-    }
+
     inst->lwip_p2p->nnodes = nnodes;
 }
 
