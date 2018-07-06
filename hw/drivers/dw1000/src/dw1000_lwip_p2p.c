@@ -57,11 +57,9 @@ lwip_p2p_timer_ev_cb(struct os_event *ev) {
     dw1000_dev_instance_t * inst = (dw1000_dev_instance_t *)ev->ev_arg;
     dw1000_lwip_p2p_instance_t * lwip_p2p = inst->lwip_p2p;
     
-    uint32_t idx = lwip_p2p->idx++ % ((lwip_p2p->nnodes)*(lwip_p2p->nnodes - 1)/2);
+    uint32_t idx = lwip_p2p->idx++ % (lwip_p2p->nnodes-1);
 
-    printf("\t[0x%x], ",idx, lwip_p2p->payload_info[idx]->node_addr);
     inst->lwip->dst_addr = lwip_p2p->payload_info[idx]->node_addr;
-
     dw1000_lwip_p2p_send(inst, idx);
     os_callout_reset(&lwip_p2p_callout_timer, OS_TICKS_PER_SEC/2);
     dw1000_lwip_start_rx(inst, 0xFFFF);
@@ -100,8 +98,9 @@ dw1000_lwip_p2p_init(dw1000_dev_instance_t * inst, uint16_t nnodes,
 
     if (inst->lwip_p2p == NULL ) {
         inst->lwip_p2p = (dw1000_lwip_p2p_instance_t *)malloc( sizeof(dw1000_lwip_p2p_instance_t) + 
-                                    ((nnodes * (nnodes-1))/2) * ( (sizeof(dw1000_lwip_p2p_payload_info_t *)) + 
+                                    (nnodes-1) * ( (sizeof(dw1000_lwip_p2p_payload_info_t *)) + 
                                         (sizeof(dw1000_lwip_p2p_node_address_t *))) );
+
         assert(inst->lwip_p2p);
         memset(inst->lwip_p2p, 0, sizeof(dw1000_lwip_p2p_instance_t));
         inst->lwip_p2p->status.selfmalloc = 1;
@@ -177,7 +176,6 @@ void
 dw1000_lwip_p2p_start(dw1000_dev_instance_t * inst){
 
     dw1000_lwip_p2p_instance_t * lwip_p2p = inst->lwip_p2p;
-    lwip_p2p->idx = 0x0;
     lwip_p2p->status.valid = false;
     lwip_p2p_timer_init(inst);
 }
