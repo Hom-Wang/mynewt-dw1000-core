@@ -43,9 +43,6 @@
 #if MYNEWT_VAL(DW1000_LWIP)
 #include <dw1000/dw1000_lwip.h>
 #endif
-#if MYNEWT_VAL(DW1000_LWIP_P2P)
-#include <dw1000/dw1000_lwip_p2p.h>
-#endif
 
 static void rng_tx_complete_cb(dw1000_dev_instance_t * inst);
 static void rng_rx_complete_cb(dw1000_dev_instance_t * inst);

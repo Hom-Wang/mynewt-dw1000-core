@@ -35,7 +35,9 @@
 #include <dw1000/dw1000_mac.h>
 #include <dw1000/dw1000_ftypes.h>
 #include <dw1000/dw1000_lwip.h>
-#include <dw1000/dw1000_lwip_p2p.h>
+#if MYNEWT_VAL(DW1000_LWIP_P2P)
+#include <dw1000_lwip_p2p.h>
+#endif
 
 #include <dw1000/dw1000_phy.h>
 #include "sysinit/sysinit.h"
