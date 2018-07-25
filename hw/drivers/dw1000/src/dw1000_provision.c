@@ -133,6 +133,7 @@ dw1000_provision_free(dw1000_dev_instance_t * inst){
             free(inst->provision->dev_addr);
         }
         free(inst->provision);
+	inst->provision = NULL;
     }
     else
         inst->status.initialized = 0;
