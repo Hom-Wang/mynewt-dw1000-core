@@ -75,7 +75,7 @@ syscfg.defs:
     PAN_PERIOD:
         description: >
             PAN Discovery Packets Period 
-        value: ((uint32_t){0x200000})
+        value: ((uint32_t){0x20000})
     RANGE_PERIOD:
         description: >
             Ranging period

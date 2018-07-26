@@ -80,6 +80,8 @@ typedef struct _dw1000_pan_instance_t{
     dw1000_pan_status_t status;
     dw1000_pan_control_t control;
     dw1000_pan_config_t * config;
+    struct os_callout pan_callout_timer;
+    struct os_callout pan_callout_postprocess;
     uint32_t period;
     uint16_t nframes;
     uint16_t idx;
