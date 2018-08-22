@@ -71,11 +71,6 @@ void tdma_free(struct _tdma_instance_t * inst);
 void tdma_assign_slot(struct _tdma_instance_t * inst, void (* callout )(struct os_event *), uint16_t idx, void * arg);
 void tdma_release_slot(struct _tdma_instance_t * inst, uint16_t idx);
 
-//#define dw1000_dwt_usecs_to_usecs(_t) (float)( _t / dw1000_usecs_to_dwt_usecs(1.0)) 
-//#define dw1000_usecs_to_dwt_usecs(_t) (float)( _t * (0x10000/(128*499.2))) 
-
-#define dw1000_dwt_usecs_to_usecs(_t) (float)( _t * (0x10000/(128*499.2))) 
-#define dw1000_usecs_to_dwt_usecs(_t) (float)( _t * dw1000_dwt_usecs_to_usecs(1.0)) 
 
 #ifdef __cplusplus
 }
