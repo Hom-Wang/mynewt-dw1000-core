@@ -29,11 +29,14 @@
 #if MYNEWT_VAL(DW1000_SS_TWR_ENABLED)
 #define SS_TWR_ENABLE
 #endif
+#if MYNEWT_VAL(DW1000_SS_TWR_EXT_ENABLED)
+#define SS_TWR_EXT_ENABLE
+#endif
 #if MYNEWT_VAL(DW1000_DS_TWR_ENABLED)
 #define DS_TWR_ENABLE
 #endif
 #if MYNEWT_VAL(DW1000_DS_TWR_EXT_ENABLED)
-#define DS_TWR_EXT_ENABLE
+#define DS_TWR_EXT_ENABLE 
 #endif
 
 #ifdef __cplusplus
@@ -75,6 +78,10 @@ typedef enum _dw1000_rng_modes_t{
     DWT_DS_TWR_EXT_END,
     DWT_PROVISION_START,
     DWT_PROVISION_RESP,
+    DWT_SS_TWR_EXT,
+    DWT_SS_TWR_EXT_T1,
+    DWT_SS_TWR_EXT_FINAL,
+    DWT_SS_TWR_EXT_END,
 }dw1000_rng_modes_t;
 
 typedef struct _dw1000_rng_status_t{
@@ -101,7 +108,7 @@ typedef struct _twr_data_t{
 typedef union {
     struct _twr_frame_t{
         struct _twr_frame_final_t;
-#ifdef DS_TWR_EXT_ENABLE
+#if defined(DS_TWR_EXT_ENABLE) || defined(SS_TWR_EXT_ENABLE)
         union {
             struct _twr_data_t;
             uint8_t payload[sizeof(struct _twr_data_t)];

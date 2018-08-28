@@ -148,6 +148,7 @@ tdma_assign_slot(struct _tdma_instance_t * inst, void (* callout )(struct os_eve
     }
     inst->slot[idx]->idx = idx;
     inst->slot[idx]->parent = inst;
+    inst->slot[idx]->arg = arg;
 
     os_cputime_timer_init(&inst->slot[idx]->timer, slot_timer_cb, (void *) inst->slot[idx]);
 #ifdef TDMA_TASKS_ENABLE
