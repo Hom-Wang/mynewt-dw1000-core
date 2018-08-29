@@ -41,6 +41,7 @@ static void dw1000_interrupt_task(void *arg);
 static void dw1000_interrupt_ev_cb(struct os_event *ev);
 static void dw1000_irq(void *arg);
 
+
 //#define DIAGMSG(s,u) printf(s,u)
 #ifndef DIAGMSG
 #define DIAGMSG(s,u)

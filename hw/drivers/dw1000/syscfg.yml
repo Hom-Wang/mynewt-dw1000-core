@@ -5,7 +5,7 @@ syscfg.defs:
         value:  5
     DW1000_DEV_TASK_STACK_SZ:
         description: 'Size of interrupt task stack'
-        value: 128
+        value: 256
     DW1000_SS_TWR_ENABLED:
         description: 'Single sided TWR Enabled'
         value: 1
@@ -106,7 +106,7 @@ syscfg.defs:
     OS_LATENCY:
         description: >
             OS Latency Guardband 
-        value: ((uint32_t){3000})
+        value: ((uint32_t){1800})
     FS_XTALT_AUTOTUNE_ENABLED: 
         description: >
             Autotune XTALT to Clock Master

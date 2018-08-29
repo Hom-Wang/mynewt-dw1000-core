@@ -58,6 +58,7 @@ typedef struct _dw1000_rng_config_t{
 
 typedef struct _dw1000_rng_control_t{
     uint16_t delay_start_enabled:1;
+   
 }dw1000_rng_control_t;
 
 typedef enum _dw1000_rng_modes_t{
@@ -77,11 +78,7 @@ typedef enum _dw1000_rng_modes_t{
     DWT_DS_TWR_EXT_FINAL,
     DWT_DS_TWR_EXT_END,
     DWT_PROVISION_START,
-    DWT_PROVISION_RESP,
-    DWT_SS_TWR_EXT,
-    DWT_SS_TWR_EXT_T1,
-    DWT_SS_TWR_EXT_FINAL,
-    DWT_SS_TWR_EXT_END,
+    DWT_PROVISION_RESP
 }dw1000_rng_modes_t;
 
 typedef struct _dw1000_rng_status_t{

@@ -147,6 +147,8 @@ dw1000_rng_request(dw1000_dev_instance_t * inst, uint16_t dst_address, dw1000_rn
     os_error_t err = os_sem_pend(&inst->rng->sem,  OS_TIMEOUT_NEVER);
     assert(err == OS_OK);
     
+    DIAGMSG("{\"utime\": %lu,\"msg\": \"dw1000_rng_request\"}\n",os_cputime_ticks_to_usecs(os_cputime_get32()));
+
     dw1000_rng_instance_t * rng = inst->rng;                            
     twr_frame_t * frame  = inst->rng->frames[(++rng->idx)%rng->nframes];    
     dw1000_rng_config_t * config = inst->rng->config;
@@ -275,9 +277,8 @@ dw1000_rng_twr_to_tof(dw1000_rng_instance_t * rng){
 
     switch(frame->code){
         case DWT_SS_TWR ... DWT_SS_TWR_END:
-        case DWT_SS_TWR_EXT ... DWT_SS_TWR_EXT_END:
-            ToF = ((first_frame->response_timestamp - first_frame->request_timestamp) 
-                    -  (first_frame->transmission_timestamp - first_frame->reception_timestamp))/2.; 
+            ToF = ((frame->response_timestamp - frame->request_timestamp) 
+                    -  (frame->transmission_timestamp - frame->reception_timestamp))/2.; 
         break;
         case DWT_DS_TWR ... DWT_DS_TWR_END:
         case DWT_DS_TWR_EXT ... DWT_DS_TWR_EXT_END:
@@ -320,7 +321,7 @@ dw1000_rng_twr_to_tof_sym(twr_frame_t twr[], dw1000_rng_modes_t code){
 static void 
 rng_tx_final_cb(dw1000_dev_instance_t * inst){
 
-#if defined(DS_TWR_EXT_ENABLE) || defined(SS_TWR_EXT_ENABLE)
+#ifdef DS_TWR_EXT_ENABLE
     dw1000_rng_instance_t * rng = inst->rng; 
     twr_frame_t * frame = rng->frames[(rng->idx)%rng->nframes];
 
@@ -358,19 +359,11 @@ rng_tx_complete_cb(dw1000_dev_instance_t * inst)
 
     if (inst->fctrl == FCNTL_IEEE_RANGE_16){
         // Unlock Semaphore after last transmission
-        if (frame->code == DWT_SS_TWR_FINAL || frame->code == DWT_SS_TWR_T1 || 
-            frame->code == DWT_SS_TWR_EXT_FINAL || frame->code == DWT_SS_TWR_EXT_T1){
+        if (frame->code == DWT_SS_TWR_FINAL || frame->code ==  DWT_DS_TWR_FINAL || frame->code ==  DWT_DS_TWR_EXT_FINAL){
             os_sem_release(&inst->rng->sem);  
-        }
-#if  defined(DS_TWR_ENABLE) || defined(DS_TWR_EXT_ENABLE)
-        else{ 
-            twr_frame_t * frame = rng->frames[(rng->idx+1)%rng->nframes];
-            if (frame->code ==  DWT_DS_TWR_FINAL || frame->code ==  DWT_DS_TWR_EXT_FINAL){
-                    os_sem_release(&inst->rng->sem);  
-            }
-        }
-#endif
+        } 
     }
+
     if(inst->extension_cb != NULL){
         dw1000_extension_callbacks_t *head = inst->extension_cb;
         if(inst->extension_cb->tx_complete_cb != NULL){
@@ -502,7 +495,7 @@ rng_rx_complete_cb(dw1000_dev_instance_t * inst)
                         frame->dst_address = frame->src_address;
                         frame->src_address = inst->my_short_address;
                         frame->code = DWT_SS_TWR_FINAL;
-                    
+                
                         // Transmit timestamp final report
                         dw1000_write_tx(inst, frame->array, 0, sizeof(twr_frame_final_t));
                         dw1000_write_tx_fctrl(inst, sizeof(twr_frame_final_t), 0, true);
@@ -524,7 +517,7 @@ rng_rx_complete_cb(dw1000_dev_instance_t * inst)
                 case  DWT_SS_TWR_FINAL:
                     {
                         // This code executes on the device that responded to the original request, and has now receive the response final timestamp. 
-                        // This marks the completion of the single-size-two-way request. This final 4th message is perhaps optional in some applicaiton. 
+                        // This marks the completion of the single-size-two-way request. This final 4th message is optional in some applicaiton. 
                         DIAGMSG("{\"utime\": %lu,\"msg\": \"DWT_SS_TWR_FINAL\"}\n",os_cputime_ticks_to_usecs(os_cputime_get32()));
 
                         dw1000_rng_instance_t * rng = inst->rng; 
@@ -550,110 +543,6 @@ rng_rx_complete_cb(dw1000_dev_instance_t * inst)
              }
              break;
 #endif //SS_TWR_ENABLE
-#ifdef SS_TWR_EXT_ENABLE
-        case DWT_SS_TWR_EXT ... DWT_SS_TWR_EXT_FINAL:
-            switch(code){
-                case DWT_SS_TWR_EXT:
-                    {
-                        // This code executes on the device that is responding to a request
-                        DIAGMSG("{\"utime\": %lu,\"msg\": \"DWT_SS_TWR_EXT\"}\n",os_cputime_ticks_to_usecs(os_cputime_get32()));
-
-                        dw1000_rng_instance_t * rng = inst->rng; 
-                        twr_frame_t * frame = rng->frames[(++rng->idx)%rng->nframes];
-                        if (inst->frame_len >= sizeof(ieee_rng_request_frame_t))
-                            dw1000_read_rx(inst, frame->array, 0, sizeof(ieee_rng_request_frame_t));
-                        else 
-                            break; 
-                    
-                        uint64_t request_timestamp = dw1000_read_rxtime(inst);  
-                        uint64_t response_tx_delay = request_timestamp + ((uint64_t)config->tx_holdoff_delay << 16);
-                        uint64_t response_timestamp = (response_tx_delay & 0xFFFFFFFE00UL) + inst->tx_antenna_delay;
-        
-                        frame->reception_timestamp = request_timestamp;
-                        frame->transmission_timestamp = response_timestamp;
-                        frame->dst_address = frame->src_address;
-                        frame->src_address = inst->my_short_address;
-                        frame->code = DWT_SS_TWR_EXT_T1;
-
-                        dw1000_write_tx(inst, frame->array, 0, sizeof(ieee_rng_response_frame_t));
-                        dw1000_write_tx_fctrl(inst, sizeof(ieee_rng_response_frame_t), 0, true); 
-                        dw1000_set_wait4resp(inst, true);    
-                        dw1000_set_delay_start(inst, response_tx_delay);
-                        dw1000_set_rx_timeout(inst, config->rx_timeout_period); 
-
-                        if (dw1000_start_tx(inst).start_tx_error)
-                            os_sem_release(&rng->sem);  
-                        break;
-                    }
-                case DWT_SS_TWR_EXT_T1:
-                    {
-                        // This code executes on the device that initiated a request, and is now preparing the final timestamps
-                        DIAGMSG("{\"utime\": %lu,\"msg\": \"DWT_SS_TWR_EXT_T1\"}\n",os_cputime_ticks_to_usecs(os_cputime_get32()));
-
-                        dw1000_rng_instance_t * rng = inst->rng; 
-                        twr_frame_t * frame = rng->frames[(rng->idx)%rng->nframes];
-                        if (inst->frame_len >= sizeof(ieee_rng_response_frame_t))
-                            dw1000_read_rx(inst, frame->array, 0, sizeof(ieee_rng_response_frame_t));
-                        else 
-                            break;
-
-                        frame->request_timestamp = dw1000_read_txtime_lo(inst);   // This corresponds to when the original request was actually sent
-                        frame->response_timestamp = dw1000_read_rxtime_lo(inst);  // This corresponds to the response just received            
-                        frame->dst_address = frame->src_address;
-                        frame->src_address = inst->my_short_address;
-                        frame->code = DWT_SS_TWR_EXT_FINAL;
-                    
-                        // Final callback, prior to transmission, use this callback to populate the EXTENDED_FRAME fields.
-                            if (inst->rng_tx_final_cb != NULL)
-                                inst->rng_tx_final_cb(inst);
-
-                        // Transmit timestamp final report
-                        dw1000_write_tx(inst, frame->array, 0, sizeof(twr_frame_t));
-                        dw1000_write_tx_fctrl(inst, sizeof(twr_frame_t), 0, true);
-                        if (dw1000_start_tx(inst).start_tx_error)
-                            os_sem_release(&rng->sem);  
-
-                        if (inst->rng_complete_cb)
-                            inst->rng_complete_cb(inst);
-
-                        if(inst->extension_cb != NULL){
-                            dw1000_extension_callbacks_t *head = inst->extension_cb;
-                            if(inst->extension_cb->rx_complete_cb != NULL){
-                                inst->extension_cb->rx_complete_cb(inst);
-                            }
-                            inst->extension_cb = head;
-                        }
-                        break;
-                    }
-                case  DWT_SS_TWR_EXT_FINAL:
-                    {
-                        // This code executes on the device that responded to the original request, and has now receive the response final timestamp. 
-                        // This marks the completion of the single-size-two-way request. This final 4th message is perhaps optional in some applicaiton. 
-                        DIAGMSG("{\"utime\": %lu,\"msg\": \"DWT_SS_TWR_EXT_FINAL\"}\n",os_cputime_ticks_to_usecs(os_cputime_get32()));
-
-                        dw1000_rng_instance_t * rng = inst->rng; 
-                        twr_frame_t * frame = rng->frames[(rng->idx)%rng->nframes];
-                        if (inst->frame_len >= sizeof(twr_frame_t))
-                            dw1000_read_rx(inst, frame->array, 0, sizeof(twr_frame_t));
-                        os_sem_release(&rng->sem);
-                        
-                        if (inst->rng_complete_cb) 
-                            inst->rng_complete_cb(inst);
-                        
-                        if(inst->extension_cb != NULL){
-                            dw1000_extension_callbacks_t *head = inst->extension_cb;
-                            if(inst->extension_cb->rx_complete_cb != NULL){
-                                inst->extension_cb->rx_complete_cb(inst);
-                            }
-                            inst->extension_cb = head;
-                        }
-                        break;
-                    }
-                default: 
-                    break;
-             }
-             break;
-#endif //SS_TWR_EXT_ENABLE
 #ifdef DS_TWR_ENABLE
         case DWT_DS_TWR ... DWT_DS_TWR_FINAL:
             switch(code){
@@ -857,6 +746,7 @@ rng_rx_complete_cb(dw1000_dev_instance_t * inst)
                             frame->dst_address = frame->src_address;
                             frame->src_address = inst->my_short_address;
                             frame->code = DWT_DS_TWR_EXT_T1;
+                            
 
                             dw1000_write_tx(inst, frame->array, 0, sizeof(ieee_rng_response_frame_t));
                             dw1000_write_tx_fctrl(inst, sizeof(ieee_rng_response_frame_t), 0, true); 
