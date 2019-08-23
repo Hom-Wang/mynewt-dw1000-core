@@ -310,7 +310,7 @@ extern "C" {
 
 /* All RX events after a correct packet reception mask. */
 #define SYS_STATUS_ALL_RX_GOOD (SYS_STATUS_RXDFR | SYS_STATUS_RXFCG | SYS_STATUS_RXPRD | \
-                                SYS_STATUS_RXSFDD | SYS_STATUS_RXPHD | SYS_STATUS_LDEDONE)
+                                SYS_STATUS_RXSFDD | SYS_STATUS_RXPHD)
 
                                 /* All TX events mask. */
 #define SYS_STATUS_ALL_TX      (SYS_STATUS_AAT | SYS_STATUS_TXFRB | SYS_STATUS_TXPRS | \
@@ -320,10 +320,10 @@ extern "C" {
 #define SYS_STATUS_ALL_DBLBUFF (SYS_STATUS_RXDFR | SYS_STATUS_RXFCG)
 
 /* All RX errors mask. */
-#define SYS_STATUS_ALL_RX_ERR  (SYS_STATUS_RXPHE | SYS_STATUS_RXFCE | SYS_STATUS_RXRFSL | SYS_STATUS_RXSFDTO \
-                                | SYS_STATUS_AFFREJ | SYS_STATUS_LDEERR)
-#define SYS_MASK_ALL_RX_ERR  (SYS_MASK_MRXPHE | SYS_MASK_MRXFCE | SYS_MASK_MRXRFSL | SYS_MASK_MRXSFDTO \
-                                | SYS_MASK_MAFFREJ | SYS_MASK_MLDEERR)
+#define SYS_STATUS_ALL_RX_ERR  (SYS_STATUS_RXPHE | SYS_STATUS_RXFCE | SYS_STATUS_RXRFSL | SYS_STATUS_RXOVRR |SYS_STATUS_RXSFDTO \
+                                | SYS_STATUS_AFFREJ )
+#define SYS_MASK_ALL_RX_ERR  (SYS_MASK_MRXPHE | SYS_MASK_MRXFCE | SYS_MASK_MRXRFSL | SYS_STATUS_RXOVRR | SYS_MASK_MRXSFDTO \
+                                | SYS_MASK_MAFFREJ )
 
 /* User defined RX timeouts (frame wait timeout and preamble detect timeout) mask. */
 #define SYS_STATUS_ALL_RX_TO    (SYS_STATUS_RXRFTO | SYS_STATUS_RXPTO)
@@ -487,6 +487,46 @@ extern "C" {
 #define SYS_STATE_ID            0x19            /* System State information READ ONLY */
 #define SYS_STATE_LEN           (5)
 
+#define TX_STATE_OFFSET         0x00            /* 7:0 TX _STATE Bits 3:0 */
+#define TX_STATE_MASK           0x07
+#define TX_STATE_IDLE           0x00
+#define TX_STATE_PREAMBLE       0x01
+#define TX_STATE_SFD            0x02
+#define TX_STATE_PHR            0x03
+#define TX_STATE_SDE            0x04
+#define TX_STATE_DATA           0x05
+#define TX_STATE_RSP_DATE       0x06
+#define TX_STATE_TAIL           0x07
+
+#define RX_STATE_OFFSET         0x01            /*  */
+#define RX_STATE_IDLE           0x00
+#define RX_STATE_START_ANALOG   0x01
+#define RX_STATE_RX_RDY         0x04
+#define RX_STATE_PREAMBLE_FOUND 0x05
+#define RX_STATE_PRMBL_TIMEOUT  0x06
+#define RX_STATE_SFD_FOUND      0x07
+#define RX_STATE_CNFG_PHR_RX    0x08
+#define RX_STATE_PHR_RX_STRT    0x09
+#define RX_STATE_DATA_RATE_RDY  0x0A
+#define RX_STATE_DATA_RX_SEQ    0x0C
+#define RX_STATE_CNFG_DATA_RX   0x0D
+#define RX_STATE_PHR_NOT_OK     0x0E
+#define RX_STATE_LAST_SYMBOL    0x0F
+#define RX_STATE_WAIT_RSD_DONE  0x10
+#define RX_STATE_RSD_OK         0x11
+#define RX_STATE_RSD_NOT_OK     0x12
+#define RX_STATE_RECONFIG_110   0x13
+#define RX_STATE_WAIT_110_PHR   0x14
+
+#define PMSC_STATE_OFFSET       0x02            /*  */
+#define PMSC_STATE_INIT         0x00
+#define PMSC_STATE_IDLE         0x01
+#define PMSC_STATE_TX_WAIT      0x02
+#define PMSC_STATE_RX_WAIT      0x03
+#define PMSC_STATE_TX           0x04
+#define PMSC_STATE_RX           0x05
+
+    
 /****************************************************************************//**
  * @brief Bit definitions for register ACK_RESP_T
 **/
@@ -924,6 +964,16 @@ extern "C" {
 #define DRX_TUNE4H_PRE64        0x0010
 #define DRX_TUNE4H_PRE128PLUS   0x0028
 
+/* offset from DRX_CONF_ID in bytes to 21-bit signed RX carrier integrator value */
+#define DRX_CARRIER_INT_OFFSET  0x28
+#define DRX_CARRIER_INT_LEN     (3)
+#define DRX_CARRIER_INT_MASK    0x001FFFFF
+
+/* offset from DRX_CONF_ID in bytes */
+#define RPACC_NOSAT_OFFSET      0x2C    /* 7.2.40.11 Sub-Register 0x27:2C - RXPACC_NOSAT */
+#define RPACC_NOSAT_LEN         (2)
+#define RPACC_NOSAT_MASK        0xFFFF
+
 
 /****************************************************************************//**
  * @brief Bit definitions for register  RF_CONF
@@ -1299,6 +1349,8 @@ extern "C" {
 #define PMSC_CTRL0_TXCLKS_125M  0x00000020UL    /* Force TX clock enable and sourced from the 125 MHz PLL clock */
 #define PMSC_CTRL0_TXCLKS_OFF   0x00000030UL    /* Force TX clock off */
 #define PMSC_CTRL0_FACE         0x00000040UL    /* Force Accumulator Clock Enable */
+#define PMSC_CTRL0_GPCE         0x00010000UL    /* GPIO clock enable */
+#define PMSC_CTRL0_GPRN         0x00020000UL    /* GPIO reset (NOT), active low */
 #define PMSC_CTRL0_GPDCE        0x00040000UL    /* GPIO De-bounce Clock Enable */
 #define PMSC_CTRL0_KHZCLEN      0x00800000UL    /* Kilohertz Clock Enable */
 #define PMSC_CTRL0_PLL2_SEQ_EN  0x01000000UL    /* Enable PLL2 on/off sequencing by SNIFF mode */

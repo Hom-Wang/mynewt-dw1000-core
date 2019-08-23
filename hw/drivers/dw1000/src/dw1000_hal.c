@@ -32,6 +32,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <assert.h>
+#include <string.h>
 #include <os/os_cputime.h>
 #include <os/os_dev.h>
 #include <syscfg/syscfg.h>
@@ -40,9 +41,13 @@
 #include <dw1000/dw1000_hal.h>
 
 #if MYNEWT_VAL(DW1000_DEVICE_0)
+/* Needed for DMA transfer operations */
+static const uint8_t tx_buffer[MYNEWT_VAL(DW1000_HAL_SPI_BUFFER_SIZE)] __attribute__ ((aligned (8))) = {0};
+
 static dw1000_dev_instance_t hal_dw1000_instances[]= {
     #if  MYNEWT_VAL(DW1000_DEVICE_0)
     [0] = {
+            .idx = 0, 
             .rst_pin  = MYNEWT_VAL(DW1000_DEVICE_0_RST),
             .ss_pin = MYNEWT_VAL(DW1000_DEVICE_0_SS),
             .irq_pin  = MYNEWT_VAL(DW1000_DEVICE_0_IRQ),
@@ -55,31 +60,40 @@ static dw1000_dev_instance_t hal_dw1000_instances[]= {
             .rx_antenna_delay = MYNEWT_VAL(DW1000_DEVICE_0_RX_ANT_DLY),
             .tx_antenna_delay = MYNEWT_VAL(DW1000_DEVICE_0_TX_ANT_DLY),
             .status = {0},
+            .attrib = {                //!< phy attritubes per the IEEE802.15.4-2011 standard, Table 99 and Table 101 
+                .Tpsym = 1.01760,      //!< Preamble symbols duration (usec) for MPRF of 62.89Mhz
+                .Tbsym = 1.02564,      //!< Baserate symbols duration (usec) 850khz
+                .Tdsym = 0.12821/0.87, //!< Datarate symbols duration (usec) 6.81Mhz adjusted for RS coding
+                .nsfd = 8,             //!< Number of symbols in start of frame delimiter
+                .nsync = 128,          //!< Number of symbols in preamble sequence
+                .nphr = 16             //!< Number of symbols in phy header
+            },
             .config = {
                 .channel = 5,                       //!< channel number {1, 2, 3, 4, 5, 7 }
                 .prf = DWT_PRF_64M,                 //!< Pulse Repetition Frequency {DWT_PRF_16M or DWT_PRF_64M}
                 .dataRate = DWT_BR_6M8,             //!< Data Rate {DWT_BR_110K, DWT_BR_850K or DWT_BR_6M8}
                 .rx = {
                     .pacLength = DWT_PAC8,          //!< Acquisition Chunk Size DWT_PAC8..DWT_PAC64 (Relates to RX preamble length)
-                    .preambleCodeIndex = 8,       //!< RX preamble code
+                    .preambleCodeIndex = 9,         //!< RX preamble code
                     .sfdType = 0,                   //!< Boolean should we use non-standard SFD for better performance
-                    .phrMode = DWT_PHRMODE_STD,     //!< PHR mode {0x0 - standard DWT_PHRMODE_STD, 0x3 - extended frames DWT_PHRMODE_EXT}
-                    .sfdTimeout = (256 + 1 + 8 - 8) //!< SFD timeout value (in symbols) (preamble length + 1 + SFD length - PAC size). Used in RX only. 
+                    .phrMode = DWT_PHRMODE_EXT,     //!< PHR mode {0x0 - standard DWT_PHRMODE_STD, 0x3 - extended frames DWT_PHRMODE_EXT}
+                    .sfdTimeout = (128 + 1 + 8 - 8) //!< SFD timeout value (in symbols) (preamble length + 1 + SFD length - PAC size). Used in RX only. 
                 },
                 .tx ={
-                    .preambleCodeIndex = 8,       //!< TX preamble code
-                    .preambleLength = DWT_PLEN_256  //!< DWT_PLEN_64..DWT_PLEN_4096
+                    .preambleCodeIndex = 9,         //!< TX preamble code
+                    .preambleLength = DWT_PLEN_128  //!< DWT_PLEN_64..DWT_PLEN_4096
                 },
                 .txrf={
                     .PGdly = TC_PGDELAY_CH5,
-                    .power = 0x2A4A6A8A,
-                    //.BOOSTNORM = dw1000_power_value(DW1000_txrf_config_9db, 5),
-                    //.BOOSTP500 = dw1000_power_value(DW1000_txrf_config_9db, 5),
-                    //.BOOSTP250 = dw1000_power_value(DW1000_txrf_config_9db, 5),
-                    //.BOOSTP125 = dw1000_power_value(DW1000_txrf_config_9db, 5)   
+                    //.power = 0x2A4A6A8A,
+                    .BOOSTNORM = dw1000_power_value(DW1000_txrf_config_9db, 2.5),
+                    .BOOSTP500 = dw1000_power_value(DW1000_txrf_config_9db, 2.5),
+                    .BOOSTP250 = dw1000_power_value(DW1000_txrf_config_9db, 2.5),
+                    .BOOSTP125 = dw1000_power_value(DW1000_txrf_config_9db, 2.5)   
                 }, 
-                .rxdiag_enable = 1,
-                .dblbuffon_enabled = 1,
+                .trxoff_enable = 1,
+                .rxdiag_enable = 0,
+                .dblbuffon_enabled = 0,
 #if MYNEWT_VAL(DW1000_MAC_FILTERING)
                 .framefilter_enabled = 1,
 #endif
@@ -90,13 +104,17 @@ static dw1000_dev_instance_t hal_dw1000_instances[]= {
                 .LDO_enable = 0,
                 .sleep_enable = 1,
                 .wakeup_rx_enable = 1,     //!< Wakeup to Rx state
-                .rxauto_enable = 1         //!< On error re-enable
+                .rxauto_enable = 1,        //!< On error re-enable
+                .cir_enable = 0,           //!< Default behavior for CIR interface
+                .pmem_enable = 0,          //!< Default behavior for Preamble detection memory
+                .cir_pdoa_slave = 0        //!< First instance should not act as pdoa slave
             },
-            .spi_mutex = 0,
-            .task_prio = 5
+            .spi_sem = 0,
+            .task_prio = 0x10
     },
     #if  MYNEWT_VAL(DW1000_DEVICE_1)
     [1] = {
+            .idx = 1, 
             .rst_pin  = MYNEWT_VAL(DW1000_DEVICE_1_RST),
             .ss_pin = MYNEWT_VAL(DW1000_DEVICE_1_SS),
             .irq_pin  = MYNEWT_VAL(DW1000_DEVICE_1_IRQ),
@@ -109,40 +127,57 @@ static dw1000_dev_instance_t hal_dw1000_instances[]= {
             .rx_antenna_delay = MYNEWT_VAL(DW1000_DEVICE_1_RX_ANT_DLY),
             .tx_antenna_delay = MYNEWT_VAL(DW1000_DEVICE_1_TX_ANT_DLY),
             .status = {0},
+            .attrib = {                //!< phy attritubes per the IEEE802.15.4-2011 standard, Table 99 and Table 101 
+                .Tpsym = 1.01760,      //!< Preamble symbols duration (usec) for MPRF of 62.89Mhz
+                .Tbsym = 1.02564,      //!< Baserate symbols duration (usec) 850khz
+                .Tdsym = 0.12821/0.87, //!< Datarate symbols duration (usec) 6.81Mhz adjusted for RS coding
+                .nsfd = 8,             //!< Number of symbols in start of frame delimiter
+                .nsync = 128,          //!< Number of symbols in preamble sequence
+                .nphr = 16             //!< Number of symbols in phy header
+            },
             .config = {
                 .channel = 5,                       //!< channel number {1, 2, 3, 4, 5, 7 }
                 .prf = DWT_PRF_64M,                 //!< Pulse Repetition Frequency {DWT_PRF_16M or DWT_PRF_64M}
-                .dataRate = DWT_BR_6M8,             // Data rate. 
+                .dataRate = DWT_BR_6M8,             //!< Data rate. 
                 .rx = {
                     .pacLength = DWT_PAC8,          //!< Acquisition Chunk Size (Relates to RX preamble length)
                     .preambleCodeIndex = 9,         //!< RX preamble code
                     .sfdType = 0,                   //!< Boolean should we use non-standard SFD for better performance
-                    .phrMode = DWT_PHRMODE_STD,     //!< PHR mode {0x0 - standard DWT_PHRMODE_STD, 0x3 - extended frames DWT_PHRMODE_EXT}
-                    .sfdTimeout = (256 + 1 + 8 - 8) //!< SFD timeout value (in symbols) (preamble length + 1 + SFD length - PAC size). Used in RX only. 
+                    .phrMode = DWT_PHRMODE_EXT,     //!< PHR mode {0x0 - standard DWT_PHRMODE_STD, 0x3 - extended frames DWT_PHRMODE_EXT}
+                    .sfdTimeout = (128 + 1 + 8 - 8) //!< SFD timeout value (in symbols) (preamble length + 1 + SFD length - PAC size). Used in RX only. 
                 },
                 .tx ={
                     .preambleCodeIndex = 9,         //!< TX preamble code
-                    .preambleLength = DWT_PLEN_256  //!< DWT_PLEN_64..DWT_PLEN_4096
+                    .preambleLength = DWT_PLEN_128  //!< DWT_PLEN_64..DWT_PLEN_4096
                 },
                 .txrf={
                     .PGdly = TC_PGDELAY_CH5,
-                    .BOOSTNORM = dw1000_power_value(DW1000_txrf_config_0db, 0),
-                    .BOOSTP500 = dw1000_power_value(DW1000_txrf_config_0db, 0),
-                    .BOOSTP250 = dw1000_power_value(DW1000_txrf_config_0db, 0),
-                    .BOOSTP125 = dw1000_power_value(DW1000_txrf_config_0db, 0)
+                    .BOOSTNORM = dw1000_power_value(DW1000_txrf_config_9db, 2.5),
+                    .BOOSTP500 = dw1000_power_value(DW1000_txrf_config_9db, 2.5),
+                    .BOOSTP250 = dw1000_power_value(DW1000_txrf_config_9db, 2.5),
+                    .BOOSTP125 = dw1000_power_value(DW1000_txrf_config_9db, 2.5)  
                 }, 
+                .trxoff_enable = 1,
                 .rxdiag_enable = 1,
-                .dblbuffon_enabled = 1,
-#if MYNEWT_VAL(DW1000_MAC_FILTERING)
-                .framefilter_enabled = 1,
+                .dblbuffon_enabled = 0,
+#if MYNEWT_VAL(DW1000_BIAS_CORRECTION_ENABLED)
+                .bias_correction_enable = 1,
 #endif
-                .rxauto_enable = 1,
+                .LDE_enable = 1,
+                .LDO_enable = 0,
+                .sleep_enable = 1,
+                .wakeup_rx_enable = 1,     //!< Wakeup to Rx state
+                .rxauto_enable = 1,        //!< On error re-enable rx
+                .cir_enable = 0,           //!< Default behavior for CIR interface
+                .pmem_enable = 0,          //!< Default behavior for Preamble detection memory
+                .cir_pdoa_slave = 1        //!< Second instance should act as pdoa slave
             },
-            .spi_mutex = 0,
-            .interrupt_task_prio = 6
+            .spi_sem = 0,
+            .task_prio = 0x11
     },
     #if  MYNEWT_VAL(DW1000_DEVICE_2)
     [2] = {
+            .idx = 2, 
             .rst_pin  = MYNEWT_VAL(DW1000_DEVICE_2_RST),
             .ss_pin = MYNEWT_VAL(DW1000_DEVICE_2_SS),
             .irq_pin  = MYNEWT_VAL(DW1000_DEVICE_2_IRQ),
@@ -155,6 +190,14 @@ static dw1000_dev_instance_t hal_dw1000_instances[]= {
             .rx_antenna_delay = MYNEWT_VAL(DW1000_DEVICE_2_RX_ANT_DLY),
             .tx_antenna_delay = MYNEWT_VAL(DW1000_DEVICE_2_TX_ANT_DLY),
             .status = {0},
+            .attrib = {                //!< phy attritubes per the IEEE802.15.4-2011 standard, Table 99 and Table 101 
+                .Tpsym = 1.01760,      //!< Preamble symbols duration (usec) for MPRF of 62.89Mhz
+                .Tbsym = 1.02564,      //!< Baserate symbols duration (usec) 850khz
+                .Tdsym = 0.12821/0.87, //!< Datarate symbols duration (usec) 6.81Mhz adjusted for RS coding
+                .nsfd = 8,             //!< Number of symbols in start of frame delimiter
+                .nsync = 128,          //!< Number of symbols in preamble sequence
+                .nphr = 16             //!< Number of symbols in phy header
+            },
              .config = {
                 .channel = 5,                       //!< channel number {1, 2, 3, 4, 5, 7 }
                 .prf = DWT_PRF_64M,                 //!< Pulse Repetition Frequency {DWT_PRF_16M or DWT_PRF_64M}
@@ -163,12 +206,12 @@ static dw1000_dev_instance_t hal_dw1000_instances[]= {
                     .pacLength = DWT_PAC8,          //!< Acquisition Chunk Size (Relates to RX preamble length)
                     .preambleCodeIndex = 9,         //!< RX preamble code
                     .sfdType = 0,                   //!< Boolean should we use non-standard SFD for better performance
-                    .phrMode = DWT_PHRMODE_STD,     //!< PHR mode {0x0 - standard DWT_PHRMODE_STD, 0x3 - extended frames DWT_PHRMODE_EXT}
-                    .sfdTimeout = (256 + 1 + 8 - 8) //!< SFD timeout value (in symbols) (preamble length + 1 + SFD length - PAC size). Used in RX only. 
+                    .phrMode = DWT_PHRMODE_EXT,     //!< PHR mode {0x0 - standard DWT_PHRMODE_STD, 0x3 - extended frames DWT_PHRMODE_EXT}
+                    .sfdTimeout = (128 + 1 + 8 - 8) //!< SFD timeout value (in symbols) (preamble length + 1 + SFD length - PAC size). Used in RX only. 
                 },
                 .tx ={
                     .preambleCodeIndex = 9,         //!< TX preamble code
-                    .preambleLength = DWT_PLEN_256  //!< DWT_PLEN_64..DWT_PLEN_4096
+                    .preambleLength = DWT_PLEN_128  //!< DWT_PLEN_64..DWT_PLEN_4096
                 },
                 .txrf={
                     .PGdly = TC_PGDELAY_CH5,
@@ -177,21 +220,32 @@ static dw1000_dev_instance_t hal_dw1000_instances[]= {
                     .BOOSTP250 = dw1000_power_value(DW1000_txrf_config_0db, 0),
                     .BOOSTP125 = dw1000_power_value(DW1000_txrf_config_0db, 0)
                 }, 
+                .trxoff_enable = 1,
                 .rxdiag_enable = 1,
-                .dblbuffon_enabled = 1,
+                .dblbuffon_enabled = 0,
 #if MYNEWT_VAL(DW1000_MAC_FILTERING)
                 .framefilter_enabled = 1,
 #endif
-                .rxauto_enable = 1
+                .LDE_enable = 1,
+                .LDO_enable = 0,
+                .sleep_enable = 1,
+                .wakeup_rx_enable = 1,      //!< Wakeup to Rx state
+                .rxauto_enable = 1,
+                .cir_enable = 0,            //!< Default behavior for CIR interface
+                .pmem_enable = 0,           //!< Default behavior for Preamble detection memory
+                .cir_pdoa_slave = 1         //!< Third instance should act as pdoa slave
             },
-            .spi_mutex = 0
-            .interrupt_task_prio = 7
+            .spi_sem = 0,
+            .task_prio = 0x12
     }
     #endif
     #endif
     #endif
 };
 #endif
+
+#if MYNEWT_VAL(DW1000_DEVICE_0) || MYNEWT_VAL(DW1000_DEVICE_1) || MYNEWT_VAL(DW1000_DEVICE_2)
+
 /**
  * API to choose DW1000 instances based on parameters.
  *
@@ -238,7 +292,7 @@ hal_dw1000_reset(struct _dw1000_dev_instance_t * inst)
 }
 
 /**
- * API to enable the API which is a blocking call to send a value on the SPI, returns the value received from the SPI slave.
+ * API to perform a blocking read over SPI
  *
  * @param inst      Pointer to dw1000_dev_instance_t.
  * @param cmd       Represents an array of masked attributes like reg,subindex,operation,extended,subaddress.
@@ -248,36 +302,127 @@ hal_dw1000_reset(struct _dw1000_dev_instance_t * inst)
  * @return void
  */
 void 
-hal_dw1000_read(struct _dw1000_dev_instance_t * inst, const uint8_t * cmd, uint8_t cmd_size, uint8_t * buffer, uint16_t length)
+hal_dw1000_read(struct _dw1000_dev_instance_t * inst,
+                const uint8_t * cmd, uint8_t cmd_size,
+                uint8_t * buffer, uint16_t length)
 {
     os_error_t err;
-    if (inst->spi_mutex) {
-        err = os_mutex_pend(inst->spi_mutex, OS_WAIT_FOREVER);
-        assert(err == OS_OK);
-    }
-  
+    assert(inst->spi_sem);
+    err = os_sem_pend(inst->spi_sem, OS_TIMEOUT_NEVER);
+    assert(err == OS_OK);
     hal_gpio_write(inst->ss_pin, 0);
 
-    for(uint8_t i = 0; i < cmd_size; i++)
-        hal_spi_tx_val(inst->spi_num, cmd[i]);
+    hal_spi_txrx(inst->spi_num, (void*)cmd, 0, cmd_size);
     for(uint16_t i = 0; i < length; i++)
         buffer[i] = hal_spi_tx_val(inst->spi_num, 0);
- 
+
     hal_gpio_write(inst->ss_pin, 1);
 
-    if (inst->spi_mutex) {
-        err = os_mutex_release(inst->spi_mutex);
+    err = os_sem_release(inst->spi_sem);
+    assert(err == OS_OK);
+}
+
+
+/**
+ * Interrupt context callback for nonblocking SPI-functions
+ *
+ * @param ev    pointer to os_event
+ * @return void
+ */
+void
+hal_dw1000_spi_txrx_cb(void *arg, int len)
+{
+    os_error_t err;
+    struct _dw1000_dev_instance_t * inst = arg;
+    assert(inst!=0);
+
+    /* Check for longer nonblocking read/write op */
+    if (inst->spi_nb_sem.sem_tokens == 0) {
+        err = os_sem_release(&inst->spi_nb_sem);
+        assert(err == OS_OK);
+    } else {
+        hal_gpio_write(inst->ss_pin, 1);
+        err = os_sem_release(inst->spi_sem);
         assert(err == OS_OK);
     }
 }
 
+
 /**
- * Enables the API which is a blocking call to send a value on the SPI, returns the value received from the SPI slave.
+ * API to perform a non-blocking read from SPI
  *
  * @param inst      Pointer to dw1000_dev_instance_t.
  * @param cmd       Represents an array of masked attributes like reg,subindex,operation,extended,subaddress.
  * @param cmd_size  Represents value based on the cmd attributes.
  * @param buffer    Results are stored into the buffer.
+ * @param length    Represents buffer length.
+ * @return void
+ */
+void 
+hal_dw1000_read_noblock(struct _dw1000_dev_instance_t * inst, const uint8_t * cmd, uint8_t cmd_size, uint8_t * buffer, uint16_t length)
+{
+    int rc;
+    os_error_t err;
+    assert(inst->spi_sem);
+
+    err = os_sem_pend(inst->spi_sem, OS_TIMEOUT_NEVER);
+    assert(err == OS_OK);
+    
+    hal_gpio_write(inst->ss_pin, 0);
+
+    /* Send command portion */
+    hal_spi_txrx(inst->spi_num, (void*)cmd, 0, cmd_size);
+
+    /* Nonblocking reads can only do a maximum of 255 bytes at a time. And
+     * not read more than what can fit in the tx_buffer at a time. */
+    int step = (MYNEWT_VAL(DW1000_HAL_SPI_BUFFER_SIZE) > 255) ? 255 :
+        MYNEWT_VAL(DW1000_HAL_SPI_BUFFER_SIZE);
+    int bytes_left = length;
+    for (int offset = 0;offset<length;offset+=step) {
+        int bytes_to_read = (bytes_left > step) ? step : bytes_left;
+        bytes_left-=bytes_to_read;
+
+        /* Only use the spi_nb_sem if needed */
+        if (bytes_left) {
+            err = os_sem_pend(&inst->spi_nb_sem, OS_TIMEOUT_NEVER);
+            assert(err == OS_OK);
+        }
+   
+        rc = hal_spi_disable(inst->spi_num);
+        rc |= hal_spi_set_txrx_cb(inst->spi_num, hal_dw1000_spi_txrx_cb, (void*)inst);   
+        rc |= hal_spi_enable(inst->spi_num);
+        assert(rc == OS_OK);
+
+        rc = hal_spi_txrx_noblock(inst->spi_num, (void*)tx_buffer,
+                                  (void*)buffer+offset, bytes_to_read);
+        assert(rc==OS_OK);
+
+        /* Only wait for this round if there is more data to read */
+        if (bytes_left) {
+            err = os_sem_pend(&inst->spi_nb_sem, OS_TIMEOUT_NEVER);
+            assert(err == OS_OK);
+
+            err = os_sem_release(&inst->spi_nb_sem);
+            assert(err == OS_OK);
+        }
+    }
+
+    /* Reaquire semaphore after rx complete */
+    err = os_sem_pend(inst->spi_sem, OS_TIMEOUT_NEVER);
+    assert(err == OS_OK);
+
+    err = os_sem_release(inst->spi_sem);
+    assert(err == OS_OK);
+}
+
+
+/**
+ * API to perform a blocking write over SPI
+ *
+ * @param inst      Pointer to dw1000_dev_instance_t.
+ * @param cmd       Represents an array of masked attributes like reg,subindex,operation,extended,subaddress.
+ * @param cmd_size  Length of command array
+ * @param buffer    Data buffer to be sent to device
  * @param length    Represents buffer length. 
  * @return void
  */
@@ -285,29 +430,101 @@ void
 hal_dw1000_write(struct _dw1000_dev_instance_t * inst, const uint8_t * cmd, uint8_t cmd_size, uint8_t * buffer, uint16_t length)
 {
     os_error_t err;
-    if (inst->spi_mutex) {
-        err = os_mutex_pend(inst->spi_mutex, OS_WAIT_FOREVER);
-        assert(err == OS_OK);
-    }
+    assert(inst->spi_sem);
+    err = os_sem_pend(inst->spi_sem, OS_TIMEOUT_NEVER);
+    assert(err == OS_OK);
 
     hal_gpio_write(inst->ss_pin, 0);
 
-    for(uint8_t i = 0; i < cmd_size; i++)
-        hal_spi_tx_val(inst->spi_num, cmd[i]);
-    for(uint16_t i = 0; i < length; i++)
-        hal_spi_tx_val(inst->spi_num, buffer[i]);
+    hal_spi_txrx(inst->spi_num, (void*)cmd, 0, cmd_size);
+    hal_spi_txrx(inst->spi_num, (void*)buffer, 0, length);
      
     hal_gpio_write(inst->ss_pin, 1);
 
-    if (inst->spi_mutex) {
-        err = os_mutex_release(inst->spi_mutex);
-        assert(err == OS_OK);
+    err = os_sem_release(inst->spi_sem);
+    assert(err == OS_OK);
+}
+
+
+/**
+ * API to perform a nonblocking write over SPI
+ *
+ * @param inst      Pointer to dw1000_dev_instance_t.
+ * @param cmd       Represents an array of masked attributes like reg,subindex,operation,extended,subaddress.
+ * @param cmd_size  Length of command array
+ * @param buffer    Data buffer to be sent to device
+ * @param length    Represents buffer length. 
+ * @return void
+ */
+void 
+hal_dw1000_write_noblock(struct _dw1000_dev_instance_t * inst, const uint8_t * cmd, uint8_t cmd_size, uint8_t * buffer, uint16_t length)
+{
+    int rc = OS_OK;
+    os_error_t err;
+    assert(length);
+    assert(inst->spi_sem);
+    err = os_sem_pend(inst->spi_sem, OS_TIMEOUT_NEVER);
+    assert(err == OS_OK);
+
+    hal_gpio_write(inst->ss_pin, 0);
+    rc = hal_spi_txrx(inst->spi_num, (void*)cmd, 0, cmd_size);
+    assert(rc==OS_OK);
+
+    /* Nonblocking writes can only do a maximum of 255 bytes at a time */
+    int step = 255;
+    int bytes_left = length;
+    for (int offset = 0;offset<length;offset+=step) {
+        int bytes_to_write = (bytes_left > step) ? step : bytes_left;
+        bytes_left-=bytes_to_write;
+
+        /* Only use the spi_nb_sem if needed */
+        if (bytes_left) {
+            err = os_sem_pend(&inst->spi_nb_sem, OS_TIMEOUT_NEVER);
+            assert(err == OS_OK);
+        }
+
+        rc = hal_spi_disable(inst->spi_num);
+        rc |= hal_spi_set_txrx_cb(inst->spi_num, hal_dw1000_spi_txrx_cb, (void*)inst);   
+        rc |= hal_spi_enable(inst->spi_num);
+        assert(rc == OS_OK);
+
+        rc = hal_spi_txrx_noblock(inst->spi_num, (void*)buffer+offset,
+                                  0, bytes_to_write);
+        assert(rc==OS_OK);
+
+        /* Only wait for this round if there is more data to read */
+        if (bytes_left) {
+            /* Wait for this round of writing to complete */
+            err = os_sem_pend(&inst->spi_nb_sem, OS_TIMEOUT_NEVER);
+            assert(err == OS_OK);
+            
+            err = os_sem_release(&inst->spi_nb_sem);
+            assert(err == OS_OK);
+        }
     }
 }
 
 /**
- * API to disable the SPI after entering into critical section and wait for certain time before it enables the SPI 
- * and exit from the critical section.
+ * API to wait for a DMA transfer
+ *
+ * @param inst  Pointer to dw1000_dev_instance_t.
+ * @param timeout  Time in os_ticks to wait, use OS_TIMEOUT_NEVER to wait indefinitely
+ * @return void
+ */
+os_error_t
+hal_dw1000_rw_noblock_wait(struct _dw1000_dev_instance_t * inst, os_time_t timeout)
+{
+    os_error_t err;
+    err = os_sem_pend(inst->spi_sem, timeout);
+    if (inst->spi_sem->sem_tokens == 0) {
+        os_sem_release(inst->spi_sem);
+    }
+    return err;
+}
+
+
+/**
+ * API to wake dw1000 from sleep mode
  *
  * @param inst  Pointer to dw1000_dev_instance_t. 
  * @return void
@@ -317,11 +534,11 @@ hal_dw1000_wakeup(struct _dw1000_dev_instance_t * inst)
 {
     os_error_t err;
     os_sr_t sr;
+    assert(inst->spi_sem);
+    err = os_sem_pend(inst->spi_sem, OS_TIMEOUT_NEVER);
+    assert(err == OS_OK);
+
     OS_ENTER_CRITICAL(sr);
-    if (inst->spi_mutex) {
-        err = os_mutex_pend(inst->spi_mutex, OS_WAIT_FOREVER);
-        assert(err == OS_OK);
-    }
     
     hal_spi_disable(inst->spi_num);
     hal_gpio_write(inst->ss_pin, 0);
@@ -332,21 +549,20 @@ hal_dw1000_wakeup(struct _dw1000_dev_instance_t * inst)
     hal_gpio_write(inst->ss_pin, 1);
     hal_spi_enable(inst->spi_num);
 
-    if (inst->spi_mutex) {
-        err = os_mutex_release(inst->spi_mutex);
-        assert(err == OS_OK);
-    }
-
     // Waiting for XTAL to start and stabilise - 5ms safe
     // (check PLL bit in IRQ?)
     os_cputime_delay_usecs(5000);
 
     OS_EXIT_CRITICAL(sr);
+
+    err = os_sem_release(inst->spi_sem);
+    assert(err == OS_OK);
 }
 
 /**
- * API to read the current level of the rst pin.When sleeping dw1000 will let this pin should go low. 
- * 
+ * API to read the current level of the rst pin. 
+ * When sleeping dw1000 will let this pin go low. 
+ *
  * @param inst  Pointer to dw1000_dev_instance_t
  * @return status of rst_pin
  */
@@ -355,3 +571,5 @@ hal_dw1000_get_rst(struct _dw1000_dev_instance_t * inst)
 {
     return hal_gpio_read(inst->rst_pin);
 }
+
+#endif

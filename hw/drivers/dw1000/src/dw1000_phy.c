@@ -33,11 +33,41 @@
 #include <string.h>
 #include <assert.h>
 #include <os/os.h>
+#include <math.h>
 #include <hal/hal_spi.h>
 #include <hal/hal_gpio.h>
 #include <dw1000/dw1000_phy.h>
 
 static inline void _dw1000_phy_load_microcode(struct _dw1000_dev_instance_t * inst);
+
+void dw1000_phy_enable_ext_pa(struct _dw1000_dev_instance_t* inst, bool enable)
+{
+	uint8_t buf[2] = {0x00,0x00};
+	
+	if(enable == true)
+	{
+		dw1000_gpio4_config_ext_pa(inst);
+		
+		dw1000_gpio5_config_ext_txe(inst);
+		
+		//if an external power amplifier is being used, TX fine grain power dequeencing must be disabled
+		dw1000_write(inst, PMSC_ID, PMSC_TXFINESEQ_OFFSET, buf, 2);
+	}else
+	{
+		//TODO, config as gpio mode
+	}
+}
+
+void dw1000_phy_enable_ext_lna(struct _dw1000_dev_instance_t* inst, bool enable)
+{
+	if(enable == true)
+	{
+		dw1000_gpio6_config_ext_rxe(inst);
+	}else
+	{
+		//TODO, config as gpio mode
+	}
+}
 
 /**
  * API that force system clock to be the 19.2 MHz XTI clock.
@@ -136,12 +166,15 @@ void dw1000_phy_disable_sequencing(struct _dw1000_dev_instance_t * inst){
 dw1000_dev_status_t dw1000_phy_init(struct _dw1000_dev_instance_t * inst, dw1000_dev_txrf_config_t * txrf_config){
 
     if (txrf_config == NULL)
-         txrf_config = &inst->config.txrf;
+        txrf_config = &inst->config.txrf;
     else
         memcpy(&inst->config.txrf, txrf_config, sizeof(dw1000_dev_txrf_config_t));
 
     dw1000_softreset(inst);
+    dw1000_phy_sysclk_XTAL(inst);
+#if MYNEWT_VAL(DW1000_RXTX_LEDS)
     dw1000_gpio_config_leds(inst, DWT_LEDS_ENABLE | DWT_LEDS_INIT_BLINK);
+#endif
 
     // Configure the CPLL lock detect
     uint8_t reg = dw1000_read_reg(inst, EXT_SYNC_ID, EC_CTRL_OFFSET, sizeof(uint8_t));
@@ -321,20 +354,36 @@ void dw1000_phy_forcetrxoff(struct _dw1000_dev_instance_t * inst)
 
     os_error_t err = os_mutex_pend(&inst->mutex, OS_WAIT_FOREVER);
     assert(err == OS_OK);
-
+    
     dw1000_write_reg(inst, SYS_MASK_ID, 0, 0, sizeof(uint32_t)) ; // Clear interrupt mask - so we don't get any unwanted events
     dw1000_write_reg(inst, SYS_CTRL_ID, SYS_CTRL_OFFSET, (uint16_t)SYS_CTRL_TRXOFF, sizeof(uint16_t)) ; // Disable the radio
     // Forcing Transceiver off - so we do not want to see any new events that may have happened
-    dw1000_write_reg(inst, SYS_STATUS_ID, 0, (SYS_STATUS_ALL_TX | SYS_STATUS_ALL_RX_ERR | SYS_STATUS_ALL_RX_TO | SYS_STATUS_ALL_RX_GOOD), sizeof(uint32_t));
-    dw1000_sync_rxbufptrs(inst);
-    dw1000_write_reg(inst, SYS_MASK_ID, 0, mask, sizeof(uint32_t)); // Restore mask to what it was
+    dw1000_write_reg(inst, SYS_STATUS_ID, 0, (SYS_STATUS_ALL_TX | SYS_STATUS_ALL_RX_ERR | SYS_STATUS_ALL_RX_TO | SYS_STATUS_ALL_RX_GOOD| SYS_STATUS_TXBERR), sizeof(uint32_t));
     
+    if (inst->config.dblbuffon_enabled) 
+        dw1000_sync_rxbufptrs(inst);
+        
+    dw1000_write_reg(inst, SYS_MASK_ID, 0, mask, sizeof(uint32_t)); // Restore mask to what it was
+
+    dw1000_mac_interface_t * cbs = NULL;
+    if(!(SLIST_EMPTY(&inst->interface_cbs))){ 
+            SLIST_FOREACH(cbs, &inst->interface_cbs, next){    
+            if (cbs!=NULL && cbs->reset_cb) 
+                if(cbs->reset_cb(inst,cbs)) continue;          
+            }   
+    }      
     // Enable/restore interrupts again...
     err = os_mutex_release(&inst->mutex);
     assert(err == OS_OK);
 
     inst->control.wait4resp_enabled = 0;
 
+        /* Reset semaphore if needed */
+    if (inst->tx_sem.sem_tokens == 0) {
+        os_error_t err = os_sem_release(&inst->tx_sem);
+        assert(err == OS_OK);
+        inst->status.sem_force_released = 1;
+    }
 }
 
 /**
@@ -397,4 +446,33 @@ void dw1000_phy_external_sync(struct _dw1000_dev_instance_t * inst, uint8_t dela
         reg &= ~(EC_CTRL_WAIT_MASK | EC_CTRL_OSTRM); //clear timer value, clear OSTRM
     }    
     dw1000_write_reg(inst, EXT_SYNC_ID, EC_CTRL_OFFSET, reg, sizeof(uint16_t));
+}
+
+
+
+/**
+ * API to calculate the SHR (Preamble + SFD) duration. This is used to calculate the correct rx_timeout.
+ * @param attrib    Pointer to _phy_attributes_t * struct. The phy attritubes are part of the IEEE802.15.4-2011 standard. 
+ * Note the morphology of the frame depends on the mode of operation, see the dw1000_hal.c for the default behaviour
+ * @param nlen      The length of the frame to be transmitted/received excluding crc
+ * @return uint16_t duration in usec
+ */
+inline uint16_t dw1000_phy_SHR_duration(struct _phy_attributes_t * attrib){
+
+    uint16_t duration = ceilf(attrib->Tpsym * (attrib->nsync + attrib->nsfd));
+    return duration; 
+}
+
+/**
+ * API to calculate the frame duration (airtime). 
+ * @param attrib    Pointer to _phy_attributes_t * struct. The phy attritubes are part of the IEEE802.15.4-2011 standard. 
+ * Note the morphology of the frame depends on the mode of operation, see the dw1000_hal.c for the default behaviour
+ * @param nlen      The length of the frame to be transmitted/received excluding crc
+ * @return uint16_t duration in usec
+ */
+inline uint16_t dw1000_phy_frame_duration(struct _phy_attributes_t * attrib, uint16_t nlen){
+
+    uint16_t duration = dw1000_phy_SHR_duration(attrib)  
+            + ceilf(attrib->Tbsym * attrib->nphr + attrib->Tdsym * (nlen + 2) * 8);  // + 2 accounts for CRC
+    return duration; 
 }

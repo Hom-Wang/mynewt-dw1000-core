@@ -49,9 +49,19 @@ typedef enum _dw1000_led_modes_t{
     DWT_LEDS_INIT_BLINK = 1 << 2 //!< Set for initiation blink
 }dw1000_led_modes_t;
 
+void dw1000_gpio4_config_ext_pa(struct _dw1000_dev_instance_t * inst);
+void dw1000_gpio5_config_ext_txe(struct _dw1000_dev_instance_t * inst);
+void dw1000_gpio6_config_ext_rxe(struct _dw1000_dev_instance_t * inst);
+
 void dw1000_gpio_config_leds(struct _dw1000_dev_instance_t * inst, dw1000_led_modes_t mode);
-void dw1000_gpio_set_value(struct _dw1000_dev_instance_t * inst, uint32_t gpioNum, uint32_t value);
-void dw1000_gpio_set_direction(struct _dw1000_dev_instance_t * inst, uint32_t gpioNum, uint32_t direction);
+void dw1000_gpio_set_value(struct _dw1000_dev_instance_t * inst, uint8_t gpioNum, uint8_t value);
+void dw1000_gpio_set_direction(struct _dw1000_dev_instance_t * inst, uint8_t gpioNum, uint8_t direction);
+uint32_t dw1000_gpio_get_values(struct _dw1000_dev_instance_t * inst);
+
+void dw1000_gpio_init_out(struct _dw1000_dev_instance_t * inst, int gpioNum, int val);
+void dw1000_gpio_init_in(struct _dw1000_dev_instance_t * inst, int gpioNum);
+int dw1000_gpio_read(struct _dw1000_dev_instance_t * inst, uint8_t gpioNum);
+void dw1000_gpio_write(struct _dw1000_dev_instance_t * inst, int gpioNum, int val);
 
 #ifdef __cplusplus
 }

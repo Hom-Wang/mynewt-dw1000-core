@@ -65,7 +65,7 @@ typedef enum {
     DW1000_txrf_config_off         //!< txrf_config_off
 }coarse_power_levels_t;
 
-#define dw1000_power_value(COARSE,FINE) ((COARSE<<5) + FINE)    //!< To configure power values
+#define dw1000_power_value(COARSE,FINE) ((COARSE<<5) + (0xFFFFF & (uint16_t)(FINE * 2)))    //!< To configure power values
 
 struct _dw1000_dev_status_t dw1000_phy_init(struct _dw1000_dev_instance_t * inst, struct _dw1000_dev_txrf_config_t * txrf_config);
 void dw1000_phy_sysclk_XTAL(struct _dw1000_dev_instance_t * inst);
@@ -81,16 +81,19 @@ void dw1000_phy_interrupt_mask(struct _dw1000_dev_instance_t * inst, uint32_t bi
 
 #define dw1000_phy_set_rx_antennadelay(inst, rxDelay) dw1000_write_reg(inst, LDE_IF_ID, LDE_RXANTD_OFFSET, rxDelay, sizeof(uint16_t)) //!< Set the RX antenna delay for auto TX timestamp adjustment
 #define dw1000_phy_set_tx_antennadelay(inst, txDelay) dw1000_write_reg(inst, TX_ANTD_ID, TX_ANTD_OFFSET, txDelay, sizeof(uint16_t)) //!< Set the TX antenna delay for auto TX timestamp adjustment
-
 #define dw1000_phy_read_wakeuptemp(inst) ((uint8_t) dw1000_read_reg(inst, TX_CAL_ID, TC_SARL_SAR_LTEMP_OFFSET, sizeof(uint8_t))) //!< Read the temperature level of the DW1000 that was sampled on waking from Sleep/Deepsleep
-
 #define dw1000_phy_read_wakeupvbat(inst) ((uint8_t) dw1000_read_reg(inst, TX_CAL_ID, TC_SARL_SAR_LVBAT_OFFSET, sizeof(uint8_t))) //!< Read the battery voltage of the DW1000 that was sampled on waking from Sleep/Deepsleep
 
 
 float dw1000_phy_read_wakeuptemp_SI(struct _dw1000_dev_instance_t * inst);
 float dw1000_phy_read_read_wakeupvbat_SI(struct _dw1000_dev_instance_t * inst);
-
 void dw1000_phy_external_sync(struct _dw1000_dev_instance_t * inst, uint8_t delay, bool enable);
+
+uint16_t dw1000_phy_SHR_duration(struct _phy_attributes_t * attrib);
+uint16_t dw1000_phy_frame_duration(struct _phy_attributes_t * attrib, uint16_t nlen);
+
+void dw1000_phy_enable_ext_pa(struct _dw1000_dev_instance_t* inst, bool enable);
+void dw1000_phy_enable_ext_lna(struct _dw1000_dev_instance_t* inst, bool enable);
 
 #ifdef __cplusplus
 }

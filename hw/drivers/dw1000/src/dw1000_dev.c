@@ -35,13 +35,16 @@
 #include <os/os.h>
 #include <hal/hal_spi.h>
 #include <hal/hal_gpio.h>
+#include <stats/stats.h>
 #include <dw1000/dw1000_dev.h>
 #include <dw1000/dw1000_regs.h>
 #include <dw1000/dw1000_hal.h>
 #include <dw1000/dw1000_phy.h>
 
-
-static dw1000_extension_callbacks_t* dw1000_new_extension_callbacks(dw1000_dev_instance_t* inst);
+#define DIAGMSG(s,u) printf(s,u)
+#ifndef DIAGMSG
+#define DIAGMSG(s,u)
+#endif
 
 /**
  * API to perform dw1000_read from given address.
@@ -63,7 +66,7 @@ dw1000_read(dw1000_dev_instance_t * inst, uint16_t reg, uint16_t subaddress, uin
         .reg = reg,
         .subindex = subaddress != 0,
         .operation = 0, //Read
-        .extended = subaddress > 128,
+        .extended = subaddress > 0x7F,
         .subaddress = subaddress
     };
 
@@ -74,7 +77,14 @@ dw1000_read(dw1000_dev_instance_t * inst, uint16_t reg, uint16_t subaddress, uin
     };
 
     uint8_t len = cmd.subaddress?(cmd.extended?3:2):1;
-    hal_dw1000_read(inst, header, len, buffer, length);  // result is stored in the buffer
+    /* Possible issue here when reading shorter amounts of data
+     * using the nonblocking read with double buffer. Asserts on 
+     * mutex releases seen in calling function when reading frames of length 8 */
+    if (length < MYNEWT_VAL(DW1000_DEVICE_SPI_RD_MAX_NOBLOCK)) {
+        hal_dw1000_read(inst, header, len, buffer, length);
+    } else {
+        hal_dw1000_read_noblock(inst, header, len, buffer, length);
+    }
 
     return inst->status;
 }
@@ -100,7 +110,7 @@ dw1000_write(dw1000_dev_instance_t * inst, uint16_t reg, uint16_t subaddress, ui
         .reg = reg,
         .subindex = subaddress != 0,
         .operation = 1, //Write
-        .extended = subaddress > 128,
+        .extended = subaddress > 0x7F,
         .subaddress = subaddress
     };
 
@@ -111,8 +121,12 @@ dw1000_write(dw1000_dev_instance_t * inst, uint16_t reg, uint16_t subaddress, ui
     };
 
     uint8_t len = cmd.subaddress?(cmd.extended?3:2):1; 
-    hal_dw1000_write(inst, header, len, buffer, length); 
-
+    /* Only use non-blocking write if the length of the write justifies it */
+    if (len+length < 4) {
+        hal_dw1000_write(inst, header, len, buffer, length);
+    } else {
+        hal_dw1000_write_noblock(inst, header, len, buffer, length);
+    }
     return inst->status;
 }
 
@@ -132,10 +146,28 @@ dw1000_read_reg(dw1000_dev_instance_t * inst, uint16_t reg, uint16_t subaddress,
     union _buffer{
         uint8_t array[sizeof(uint64_t)];
         uint64_t value;
-    } __attribute__((__packed__)) buffer;
-    
+    } __attribute__((__packed__, aligned (8))) buffer;
+
+    assert(reg <= 0x3F); // Record number is limited to 6-bits.
+    assert((subaddress <= 0x7FFF) && ((subaddress + nbytes) <= 0x7FFF)); // Index and sub-addressable area are limited to 15-bits.
     assert(nbytes <= sizeof(uint64_t));
-    dw1000_read(inst, reg, subaddress, buffer.array, nbytes); // Read nbytes register into buffer
+
+    dw1000_cmd_t cmd = {
+        .reg = reg,
+        .subindex = subaddress != 0,
+        .operation = 0, //Read
+        .extended = subaddress > 0x7F,
+        .subaddress = subaddress
+    };
+
+    uint8_t header[] = {
+        [0] = cmd.operation << 7 | cmd.subindex << 6 | cmd.reg,
+        [1] = cmd.extended << 7 | (uint8_t) (subaddress),
+        [2] = (uint8_t) (subaddress >> 7)
+    };
+
+    uint8_t len = cmd.subaddress?(cmd.extended?3:2):1;
+    hal_dw1000_read(inst, header, len, buffer.array, nbytes);  // result is stored in the buffer
 
     return buffer.value;
 } 
@@ -160,7 +192,25 @@ dw1000_write_reg(dw1000_dev_instance_t * inst, uint16_t reg, uint16_t subaddress
 
     buffer.value = val;
     assert(nbytes <= sizeof(uint64_t));
-    dw1000_write(inst, reg, subaddress, buffer.array, nbytes); 
+    assert(reg <= 0x3F); // Record number is limited to 6-bits.
+    assert((subaddress <= 0x7FFF) && ((subaddress + nbytes) <= 0x7FFF)); // Index and sub-addressable area are limited to 15-bits.
+
+    dw1000_cmd_t cmd = {
+        .reg = reg,
+        .subindex = subaddress != 0,
+        .operation = 1, //Write
+        .extended = subaddress > 0x7F,
+        .subaddress = subaddress
+    };
+
+    uint8_t header[] = {
+        [0] = cmd.operation << 7 | cmd.subindex << 6 | cmd.reg,
+        [1] = cmd.extended << 7 | (uint8_t) (subaddress),
+        [2] = (uint8_t) (subaddress >> 7)
+    };
+
+    uint8_t len = cmd.subaddress?(cmd.extended?3:2):1;
+    hal_dw1000_write(inst, header, len, buffer.array, nbytes);
 } 
 
 /**
@@ -198,6 +248,9 @@ dw1000_softreset(dw1000_dev_instance_t * inst)
 int 
 dw1000_dev_init(struct os_dev *odev, void *arg)
 {
+#if MYNEWT_VAL(DW1000_PKG_INIT_LOG)
+    DIAGMSG("{\"utime\": %lu,\"msg\": \"dw1000_dev_init\"}\n",os_cputime_ticks_to_usecs(os_cputime_get32()));
+#endif
     struct dw1000_dev_cfg *cfg = (struct dw1000_dev_cfg*)arg;
     dw1000_dev_instance_t *inst = (dw1000_dev_instance_t *)odev;
     
@@ -208,15 +261,18 @@ dw1000_dev_init(struct os_dev *odev, void *arg)
         inst->status.selfmalloc = 1;
     }
 
-    inst->spi_mutex = cfg->spi_mutex;
-    inst->spi_num  = cfg->spi_num;
+    inst->spi_sem = cfg->spi_sem;
+    inst->spi_num = cfg->spi_num;
 
     os_error_t err = os_mutex_init(&inst->mutex);
     assert(err == OS_OK);
-
-    err = os_sem_init(&inst->sem, 0x1); 
+    err = os_sem_init(&inst->tx_sem, 0x1); 
     assert(err == OS_OK);
-    
+    err = os_sem_init(&inst->spi_nb_sem, 0x1);
+    assert(err == OS_OK);
+
+    SLIST_INIT(&inst->interface_cbs);
+
     return OS_OK;
 }
 
@@ -239,6 +295,7 @@ retry:
     assert(rc == 0);
     rc = hal_spi_config(inst->spi_num, &inst->spi_settings);
     assert(rc == 0);
+    hal_spi_set_txrx_cb(inst->spi_num, hal_dw1000_spi_txrx_cb, (void*)inst);    
     rc = hal_spi_enable(inst->spi_num);
     assert(rc == 0);
 
@@ -257,6 +314,9 @@ retry:
     }
     inst->timestamp = (uint64_t) dw1000_read_reg(inst, SYS_TIME_ID, SYS_TIME_OFFSET, SYS_TIME_LEN);
 
+    dw1000_phy_init(inst, NULL);
+
+    /* It's now safe to increase the SPI baudrate > 4M */
     inst->spi_settings.baudrate = MYNEWT_VAL(DW1000_DEVICE_BAUDRATE_HIGH);
     rc = hal_spi_disable(inst->spi_num);
     assert(rc == 0);
@@ -264,6 +324,27 @@ retry:
     assert(rc == 0);
     rc = hal_spi_enable(inst->spi_num);
     assert(rc == 0);
+
+    inst->PANID = MYNEWT_VAL(PANID);
+    inst->my_short_address = inst->partID & 0xffff;
+
+    if (inst == hal_dw1000_inst(0)) {
+#if  MYNEWT_VAL(DW_DEVICE_ID_0)
+        inst->my_short_address = MYNEWT_VAL(DW_DEVICE_ID_0);
+#endif
+    } else if (inst == hal_dw1000_inst(1)){
+#if  MYNEWT_VAL(DW_DEVICE_ID_1)
+        inst->my_short_address = MYNEWT_VAL(DW_DEVICE_ID_1);
+#endif
+    } else if (inst == hal_dw1000_inst(2)){
+#if  MYNEWT_VAL(DW_DEVICE_ID_2)
+        inst->my_short_address = MYNEWT_VAL(DW_DEVICE_ID_2);
+#endif
+    }
+    inst->my_long_address = (((uint64_t)inst->lotID) << 32) + inst->partID;
+
+    dw1000_set_panid(inst,inst->PANID);
+    dw1000_mac_init(inst, NULL);
 
     return OS_OK;
 }
@@ -405,11 +486,17 @@ dw1000_dev_wakeup(dw1000_dev_instance_t * inst)
     /* Antenna delays lost in deep sleep ? */
     dw1000_phy_set_rx_antennadelay(inst, inst->rx_antenna_delay);
     dw1000_phy_set_tx_antennadelay(inst, inst->tx_antenna_delay);
-    
+
     // Critical region, unlock mutex
     err = os_mutex_release(&inst->mutex);
     assert(err == OS_OK);
- 
+
+    /* In case dw1000 was instructed to sleep directly after tx
+     * we may need to release the tx sem */
+    if(os_sem_get_count(&inst->tx_sem) == 0) {
+        os_sem_release(&inst->tx_sem);
+    }
+
     return inst->status;
 }
 
@@ -465,69 +552,3 @@ dw1000_dev_enter_sleep_after_rx(dw1000_dev_instance_t * inst, uint8_t enable)
     return inst->status;
 }
 
-/**
- * API to set sleep callback.
- *
- * @param inst             Pointer to dw1000_dev_instance_t.
- * @param sleep_timer_cb   Callback to set sleep time.
- *
- */
-inline void 
-dw1000_dev_set_sleep_callback(dw1000_dev_instance_t * inst,  dw1000_dev_cb_t sleep_timer_cb){
-    inst->sleep_timer_cb = sleep_timer_cb;
-}
-/**
- * API to register extension  callbacks for different services.
- *
- * @param inst       Pointer to dw1000_dev_instance_t.
- * @param callbacks  callback instance.
- * @return void
- */
-void
-dw1000_add_extension_callbacks(dw1000_dev_instance_t* inst, dw1000_extension_callbacks_t callbacks){
-    assert(inst);
-    dw1000_extension_callbacks_t* prev_cbs = NULL;
-    dw1000_extension_callbacks_t* cur_cbs = NULL;
-    dw1000_extension_callbacks_t* new_cbs = dw1000_new_extension_callbacks(inst);
-    assert(new_cbs);
-    memcpy(new_cbs,&callbacks,sizeof(dw1000_extension_callbacks_t));
-    if(!(SLIST_EMPTY(&inst->extension_cbs))){
-        SLIST_FOREACH(cur_cbs, &inst->extension_cbs, cbs_next) {
-            prev_cbs = cur_cbs;
-        }
-        SLIST_INSERT_AFTER(prev_cbs, new_cbs, cbs_next);
-    }else
-        SLIST_INSERT_HEAD(&inst->extension_cbs, new_cbs, cbs_next);
-}
-
-/**
- * API to assign memory for new callbacks.
- *
- * @param inst  Pointer to dw1000_dev_instance_t.
- * @return new callbacks
- */
-static dw1000_extension_callbacks_t*
-dw1000_new_extension_callbacks(dw1000_dev_instance_t* inst){
-    assert(inst);
-    dw1000_extension_callbacks_t* new_cbs = (dw1000_extension_callbacks_t*)malloc(sizeof(dw1000_extension_callbacks_t));
-    memset(new_cbs, 0, sizeof(dw1000_extension_callbacks_t));
-    return new_cbs;
-}
-
-/**
- * API to remove specified callbacks.
- *
- * @param inst  Pointer to dw1000_dev_instance_t.
- * @param id    ID of the service.
- * @return void
- */
-void
-dw1000_remove_extension_callbacks(dw1000_dev_instance_t* inst, dw1000_extension_id_t id){
-    dw1000_extension_callbacks_t* temp;
-    SLIST_FOREACH(temp, &inst->extension_cbs, cbs_next) {
-        if(temp->id == id){
-            SLIST_REMOVE(&inst->extension_cbs, temp, _dw1000_extension_callback_t, cbs_next);
-            break;
-        }
-    }
-}

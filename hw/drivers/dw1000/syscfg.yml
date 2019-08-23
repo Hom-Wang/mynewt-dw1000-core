@@ -6,118 +6,87 @@ syscfg.defs:
     DW1000_DEV_TASK_STACK_SZ:
         description: 'Size of interrupt task stack'
         value: 256
-    DW1000_SS_TWR_ENABLED:
-        description: 'Single sided TWR Enabled'
-        value: 1
-    DW1000_DS_TWR_ENABLED:
-        description: 'Double sided TWR Enabled'
-        value: 1
-    DW1000_DS_TWR_EXT_ENABLED:
-        description: 'Double sided extended mode Enable'
-        value: 1
-    DW1000_SS_TWR_EXT_ENABLED:
-        description: 'Single sided extended mode Enable'
-        value: 1
-    DW1000_LWIP:
-        description: 'Enable LWIP functionality'
-        value: 0
-    DW1000_CCP_ENABLED:
-        description: 'Enable wireless clock calibration'
-        value: 0
-    TDMA_ENABLED:
-        description: 'Enable TDMA Services'
-        value: 0
-        restrictions: CLOCK_CALIBRATION_ENABLED
-        restrictions: DW1000_IDLE_TO_RX_LATENCY
-        restrictions: TDMA_NSLOTS
-        restrictions: TDMA_SUPERFRAME_PERIOD
-    TDMA_NSLOTS:
-        description: 'Enable TDMA Services'
-        value: 160
-    TDMA_SUPERFRAME_PERIOD:
-        description: 'Supoerframe period for TDMA scheme, units dwt usec'
-        value: ((uint32_t){0x100000})
-    DW1000_IDLE_TO_RX_LATENCY:
-        description: 'RX turn on delay, dwt usec units'
-        value: 0x100
-    DW1000_PAN:
-        description: 'Private Area Network functionality'
-        value: 0
+    DW1000_HAL_SPI_BUFFER_SIZE:
+        description: >
+          Size of spi read/write buffer, sets the 
+          maximum allowed nonblocking read operation
+        value: 256
+    DW1000_DEVICE_SPI_RD_MAX_NOBLOCK:
+        description: >
+          Max size spi read in bytes that is always done with blocking io.
+          Reads longer than this value will be done with non-blocking io.
+        value: 9
     DW1000_MAC_FILTERING:
         description: 'Enable the mac filtering'
-        value: 0
-    DW1000_PROVISION:
-        description: 'Enable independent provision module'
-        value: 0
-    DW1000_RANGE:
-        description: 'TWR Ranging functionality'
         value: 0
     DW1000_BIAS_CORRECTION_ENABLED:
         description: 'Enable range bias correction polynomial'
         value: 0
     DW1000_DEVICE_TX_PWR:
         description: 'Tx Power dBm'
-        value: ((float){-14.3f})
+        value: ((float)-14.3f)
     DW1000_DEVICE_ANT_GAIN:
         description: 'Antenna Gain dB'
-        value: ((float){1.0f})
+        value: ((float)1.0f)
     DW1000_DEVICE_FREQ:  
         description: 'Center frequency Hz'
-        value: ((float){6489.6f})
-    LOCAL_COORDINATE_X:
-        description: >
-            Default Anchor X Coordinate  
-        value: ((float){0.0f})
+        value: ((float)6489.6f)
+    DW1000_RXTX_LEDS:
+        description: 'Enable showing rx and tx activity on gpios'
+        value: 1
     DW1000_RNG_INDICATE_LED:
         description: 'Toggle LED_1 for every range packet received'
         value: 0
+    DW1000_CLI:
+        description: 'Debug CLI interface'
+        value: 0
+    DW1000_MAC_STATS:
+        description: 'Enable stats for the dw1000 mac'
+        value: 1
+    LOCAL_COORDINATE_X:
+        description: >
+            Default Anchor X Coordinate  
+        value: ((float)0.0f)
     LOCAL_COORDINATE_Y:
         description: >
             Default Anchor Y Coordinate  
-        value: ((float){0.0f})
+        value: ((float)0.0f)
     LOCAL_COORDINATE_Z:
         description: >
             Default Anchor Z Coordinate  
-        value: ((float){0.0f})
+        value: ((float)0.0f)
     RANGE_VARIANCE:
         description: >
             Range Measurement Variance 
-        value: ((float){5.4444e-04})
+        value: ((float)5.4444e-04)
     AZIMUTH_VARIANCE:
         description: >
             Azimuth Measurement Variance 
-        value: ((float){2.91e-2})
-    CCP_PERIOD:
-        description: >
-            Clock Calibration Packets Period 
-        value: ((uint32_t){0x100000})
-    PAN_PERIOD:
-        description: >
-            PAN Discovery Packets Period 
-        value: ((uint32_t){0x200000})
+        value: ((float)2.91e-2)
     RANGE_PERIOD:
         description: >
             Ranging period
-        value: ((uint32_t){0x3000})
-    PROVISION_PERIOD:
-        description: >
-            Provision packet period(in ms)
-        value: ((uint32_t){100})
+        value: ((uint32_t)0x3000)
     OS_LATENCY:
         description: >
-            OS Latency Guardband 
-        value: ((uint32_t){1800})
-    FS_XTALT_AUTOTUNE_ENABLED: 
+            OS Latency Guardband (usec)
+        value: ((uint32_t)1000)
+    PANID:
         description: >
-            Autotune XTALT to Clock Master
+          Default Pan ID
+        value: ((const uint16_t)0xdeca)
+    DW_DEVICE_ID_0:
+        description: >
+          Default Device ID, defaults to last 16 bit of prodid if set to 0 here
         value: 0
-        restrictions: DW1000_CCP_ENABLED
-    ADAPTIVE_TIMESCALE_ENABLED:
-        description: 'Enable Adaptive timescale adjustments'
+    DW_DEVICE_ID_1:
+        description: >
+          Default Device ID, defaults to last 16 bit of prodid if set to 0 here
         value: 0
-        restrictions: DW1000_CCP_ENABLED
-        restrictions: CCP_PERIOD
-        restrictions: TIMESCALE_PROCESSING_ENABLED
-
- 
-        
+    DW_DEVICE_ID_2:
+        description: >
+          Default Device ID, defaults to last 16 bit of prodid if set to 0 here
+        value: 0
+    DW1000_PKG_INIT_LOG:
+        description: 'Enable init messages showing each package has been initialised'
+        value:  1
